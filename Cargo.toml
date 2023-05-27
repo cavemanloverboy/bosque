@@ -1,0 +1,40 @@
+[package]
+name = "bosque"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["lib", "staticlib"] # Creates static lib
+
+[features]
+default = ["uncompressed"]
+uncompressed = ["num-traits", "rkyv"]
+
+[dependencies]
+bytemuck = "1.13.1"
+num-traits = { version = "0.2.15", optional = true }
+rkyv = { version = "0.7", default-features = false, optional = true, features = ["alloc", "size_64", "copy_unsafe"] }
+
+[build-dependencies]
+cbindgen = "0.24.3"
+
+[dev-dependencies]
+criterion = "0.5.0"
+kiddo = { version = "2.0.2", features = ["rkyv", "serialize_rkyv"] }
+num-format = "0.4.4"
+rand = "0.8.5"
+rayon = "1.7.0"
+rkyv = { version = "0.7", default-features = false, features = ["alloc", "size_64", "copy_unsafe"] }
+
+#[[bench]]
+#name = "deserialize"
+#harness = false
+
+[[bench]]
+name = "tree"
+harness = false
+
+
+[profile.release]
+codegen-units = 1
+lto = true
