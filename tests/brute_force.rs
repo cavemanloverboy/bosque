@@ -5,9 +5,10 @@ use bosque::{
     tree::{into_tree, nearest_one, squared_euclidean, Index},
 };
 use rand::{rngs::ThreadRng, Rng};
+use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
-const NDATA: usize = 1_000;
-const NQUERY: usize = 1_000;
+const NDATA: usize = 10_000;
+const NQUERY: usize = 10_000;
 
 #[test]
 fn test_brute_force() -> Result<(), Box<dyn Error>> {
@@ -30,15 +31,16 @@ fn test_brute_force() -> Result<(), Box<dyn Error>> {
     into_tree(&mut data, &mut idxs, 0);
 
     // Query tree
-    let mut results = Vec::with_capacity(NQUERY);
-    for q in &query {
-        results.push(nearest_one(&data, data.as_ptr(), q, 0, 0, f32::MAX));
-    }
+    let results: Vec<_> = query
+        .par_iter()
+        .map(|q| nearest_one(&data, data.as_ptr(), q, 0, 0, f32::MAX))
+        .collect();
 
     // Brute force check results
-    for (i, q) in query.iter().enumerate() {
-        assert_eq!(results[i], brute_force(q, &data))
-    }
+    query
+        .par_iter()
+        .enumerate()
+        .for_each(|(i, q)| assert_eq!(results[i], brute_force(q, &data)));
 
     Ok(())
 }

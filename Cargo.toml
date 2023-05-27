@@ -10,13 +10,15 @@ authors = ["Cavey Cool <caveycool@gmail.com>"]
 crate-type = ["lib", "staticlib"] # Creates static lib
 
 [features]
-default = ["uncompressed"]
+default = ["uncompressed", "parallel"]
 uncompressed = ["num-traits", "rkyv"]
+parallel = ["rayon"]
 
 [dependencies]
 bytemuck = "1.13.1"
 num-traits = { version = "0.2.15", optional = true }
 rkyv = { version = "0.7", default-features = false, optional = true, features = ["alloc", "size_64", "copy_unsafe"] }
+rayon = { version = "1.7.0", optional = true }
 
 [build-dependencies]
 cbindgen = "0.24.3"

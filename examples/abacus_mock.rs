@@ -1,6 +1,8 @@
 use bosque::{
     abacussummit::uncompressed::CP32,
-    tree::ffi::{construct_compressed_tree, query_compressed_nearest},
+    tree::ffi::{
+        construct_compressed_tree, query_compressed_nearest, query_compressed_nearest_parallel,
+    },
 };
 use std::time::Instant;
 
@@ -82,8 +84,21 @@ fn main() {
 
     // Query tree many times
     let query_timer = Instant::now();
+    unsafe {
+        drop(query_compressed_nearest(
+            flat_data_ptr.as_ptr(),
+            NUM_POINTS as u64,
+            queries.as_ptr(),
+            NUM_QUERIES as u64,
+        ))
+    };
+    println!(
+        "Carried out {NUM_QUERIES} queries in {} millis\n",
+        query_timer.elapsed().as_millis(),
+    );
+    let query_timer = Instant::now();
     let result = unsafe {
-        query_compressed_nearest(
+        query_compressed_nearest_parallel(
             flat_data_ptr.as_ptr(),
             NUM_POINTS as u64,
             queries.as_ptr(),
@@ -91,8 +106,9 @@ fn main() {
         )
     };
     println!(
-        "Carried out {NUM_QUERIES} queries in {} millis\n",
+        "Carried out {NUM_QUERIES} queries in parallel in {} millis\n",
         query_timer.elapsed().as_millis(),
     );
+
     drop(result);
 }

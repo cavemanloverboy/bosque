@@ -57,4 +57,9 @@ const QueryNearest *query_compressed_nearest(const CP32 *flat_data_ptr,
                                              const float *flat_query_ptr,
                                              uint64_t num_queries);
 
+const QueryNearest *query_compressed_nearest_parallel(const CP32 *flat_data_ptr,
+                                                      uint64_t num_points,
+                                                      const float *flat_query_ptr,
+                                                      uint64_t num_queries);
+
 } // extern "C"

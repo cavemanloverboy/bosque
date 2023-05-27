@@ -98,6 +98,12 @@ int main() {
     double query_time = ((double) end_queries - start_queries) / CLOCKS_PER_SEC;
     printf("Carried out %d queries in %f millis\n", NUM_QUERIES, 1000 * query_time);
 
+    clock_t start_queries = clock();
+    const QueryNearest* nearest = query_compressed_nearest_parallel(cpos, NUM_POINTS, queries, NUM_QUERIES);
+    clock_t end_queries = clock();
+    double query_time = ((double) end_queries - start_queries) / CLOCKS_PER_SEC;
+    printf("Carried out %d queries in parallel in %f millis\n", NUM_QUERIES, 1000 * query_time);
+
     free(pos);
     free(vel);
     free(idx);

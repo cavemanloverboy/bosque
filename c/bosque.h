@@ -63,3 +63,8 @@ const struct QueryNearest *query_compressed_nearest(const struct CP32 *flat_data
                                                     uint64_t num_points,
                                                     const float *flat_query_ptr,
                                                     uint64_t num_queries);
+
+const struct QueryNearest *query_compressed_nearest_parallel(const struct CP32 *flat_data_ptr,
+                                                             uint64_t num_points,
+                                                             const float *flat_query_ptr,
+                                                             uint64_t num_queries);
