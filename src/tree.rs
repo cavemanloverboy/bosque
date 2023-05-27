@@ -129,6 +129,7 @@ pub mod ffi {
     use super::{into_tree, Index, CP32};
 
     #[repr(C)]
+    #[derive(Default, Clone, Copy)]
     pub struct QueryNearest {
         pub dist_sq: f32,
         pub idx_within: u64,
@@ -152,17 +153,29 @@ pub mod ffi {
     pub unsafe extern "C" fn query_compressed_nearest(
         flat_data_ptr: *const CP32,
         num_points: u64,
-        query: *const [f32; 3],
-    ) -> QueryNearest {
+        flat_query_ptr: *const f32,
+        num_queries: u64,
+    ) -> *const QueryNearest {
         let flat_data: &[CP32] = std::slice::from_raw_parts(flat_data_ptr, 3 * num_points as usize);
         let data: &[[CP32; 3]] = bytemuck::cast_slice(flat_data);
-        let (dist_sq, idx_within) =
-            super::nearest_one(data, data.as_ptr(), &*query, 0, 0, f32::MAX);
-        let idx_within = idx_within as u64;
-        QueryNearest {
-            dist_sq,
-            idx_within,
-        }
+
+        let flat_queries: &[f32] =
+            std::slice::from_raw_parts(flat_query_ptr, 3 * num_queries as usize);
+        let queries: &[[f32; 3]] = bytemuck::cast_slice(flat_queries);
+
+        let results: Vec<QueryNearest> = queries
+            .iter()
+            .map(|q| {
+                let (dist_sq, idx_within) =
+                    super::nearest_one(data, data.as_ptr(), q, 0, 0, f32::MAX);
+                let idx_within = idx_within as u64;
+                QueryNearest {
+                    dist_sq,
+                    idx_within,
+                }
+            })
+            .collect();
+        Box::leak(results.into_boxed_slice()).as_ptr()
     }
 }
 

@@ -52,8 +52,9 @@ MockTree<3> new_abacus(const float (*root)[3], const float (*left)[3], const flo
 
 void construct_compressed_tree(CP32 *flat_data_ptr, uint64_t num_points, Index *idxs_ptr);
 
-QueryNearest query_compressed_nearest(const CP32 *flat_data_ptr,
-                                      uint64_t num_points,
-                                      const float (*query)[3]);
+const QueryNearest *query_compressed_nearest(const CP32 *flat_data_ptr,
+                                             uint64_t num_points,
+                                             const float *flat_query_ptr,
+                                             uint64_t num_queries);
 
 } // extern "C"

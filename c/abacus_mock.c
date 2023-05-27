@@ -42,7 +42,7 @@ int main() {
     double init_data_time = ((double) end_init_data - start_init_data) / CLOCKS_PER_SEC;
     printf("Initialized mock data in %f seconds\n", init_data_time);
 
-    // Create compressed array
+    // Compress values
     clock_t start_compress = clock();
     CP32* cpos = malloc(3 * NUM_POINTS * sizeof(CP32));
     for (int i = 0; i < NUM_POINTS; i++) {
@@ -68,26 +68,32 @@ int main() {
     printf("Constructed kdtree inplace in %f seconds\n", construct_time);
 
     // Query near origin
-    float query[3];
-    query[0] = 0.0;
-    query[1] = 0.0;
-    query[2] = 0.0;
-    QueryNearest result = query_compressed_nearest(cpos, NUM_POINTS, &query);
-    printf("Queried kdtree near origin: (%f, %f, %f) -> %f\n", decompress(cpos[3*result.idx_within]._0).pos, decompress(cpos[3*result.idx_within+1]._0).pos, decompress(cpos[3*result.idx_within+2]._0).pos, sqrt(result.dist_sq));
+    float query[3] = {0.0f, 0.0f, 0.0f};
+    const QueryNearest* result = query_compressed_nearest(cpos, NUM_POINTS, query, 1);
+    printf(
+        "Queried at origin: (%f, %f, %f) -> euclidean distance %f\n",
+        decompress(cpos[3*result->idx_within]._0).pos,
+        decompress(cpos[3*result->idx_within+1]._0).pos,
+        decompress(cpos[3*result->idx_within+2]._0).pos,
+        sqrt(result->dist_sq)
+    );
 
     // Initialize queries
-    Point *queries = (Point*)malloc(NUM_QUERIES * sizeof(Point));
-    for(int i = 0; i < NUM_QUERIES; i++) {
-        queries[i].x = (float)rand() / (float)RAND_MAX;
-        queries[i].y = (float)rand() / (float)RAND_MAX;
-        queries[i].z = (float)rand() / (float)RAND_MAX;
+    float *queries = malloc(3 * NUM_QUERIES * sizeof(float));
+    if (queries == NULL) {
+        fprintf(stderr, "Failed to allocate memory for queries.\n");
+        exit(EXIT_FAILURE);
     }
+    for(int i = 0; i < NUM_QUERIES; i++) {
+        queries[3*i] = (float)rand() / (float)RAND_MAX;
+        queries[3*i+1] = (float)rand() / (float)RAND_MAX;
+        queries[3*i+2] = (float)rand() / (float)RAND_MAX;
+    }
+    printf("Initialized queries\n");
 
     // Query tree many times
     clock_t start_queries = clock();
-    for(int i = 0; i < NUM_QUERIES; i++) {
-        QueryNearest nearest = query_compressed_nearest(cpos, NUM_POINTS, &queries[i]);
-    }
+    const QueryNearest* nearest = query_compressed_nearest(cpos, NUM_POINTS, queries, NUM_QUERIES);
     clock_t end_queries = clock();
     double query_time = ((double) end_queries - start_queries) / CLOCKS_PER_SEC;
     printf("Carried out %d queries in %f millis\n", NUM_QUERIES, 1000 * query_time);
