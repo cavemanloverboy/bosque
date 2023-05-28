@@ -166,9 +166,17 @@ pub fn nearest_k(
         bests = nearest_k(right_data, data_start, query, level + 1, k, bests);
     }
 
-    let check_stem_and_other_dim = bests
-        .peek()
-        .map_or(bests.len() < k, |&(dist_sq, _)| dist_sq >= F32(dx * dx));
+    // Check whether we have to check stem or other dim
+    // 1) if bests is not full (regardless of current bests)
+    // 2) if plane is closer than kth best
+    let check_stem_and_other_dim = if bests.len() < k {
+        true
+    } else {
+        bests
+            .peek()
+            .map_or(true, |&(dist_sq, _)| dist_sq >= F32(dx * dx))
+    };
+
     if check_stem_and_other_dim {
         let dist_sq = F32(squared_euclidean(stem, query));
         if bests.len() < k || dist_sq < bests.peek().unwrap().0 {
