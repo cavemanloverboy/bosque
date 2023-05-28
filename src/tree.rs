@@ -552,7 +552,6 @@ fn test_query_periodic() {
     println!("{idxs:#?}");
 
     let query = [-0.49; 3];
-    let (best_dist_sq, best) = unsafe { nearest_one_periodic(data, data.as_ptr(), &query, 0) };
-    println!("query: {query:?}");
-    println!("best: {:?} -> {best_dist_sq}", data[best]);
+    let (_best_dist_sq, best) = unsafe { nearest_one_periodic(data, data.as_ptr(), &query, 0) };
+    assert_eq!(best, 2);
 }
