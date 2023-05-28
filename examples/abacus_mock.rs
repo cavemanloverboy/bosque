@@ -80,7 +80,7 @@ fn main() {
         // Position in [-0.5, 0.5]
         queries.push(rand::random::<f32>() - 0.5);
     }
-    println!("Initialized queries\n");
+    println!("Initialized queries");
 
     // Query tree many times
     let query_timer = Instant::now();
