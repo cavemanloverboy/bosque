@@ -115,6 +115,82 @@ pub fn nearest_one(
     (best_dist_sq, best)
 }
 
+use std::collections::BinaryHeap;
+
+#[derive(Debug, PartialOrd, PartialEq, Clone, Copy)]
+pub struct F32(pub f32);
+
+impl Eq for F32 {}
+
+impl Ord for F32 {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).expect("you likely had a nan")
+    }
+}
+
+pub fn nearest_k(
+    data: &[[CP32; 3]],
+    data_start: *const [CP32; 3],
+    query: &[f32; 3],
+    level: usize,
+    k: usize,
+    mut bests: BinaryHeap<(F32, usize)>,
+) -> BinaryHeap<(F32, usize)> {
+    if data.len() <= BUCKET_SIZE {
+        for d in data {
+            let dist_sq = F32(squared_euclidean(d, query));
+            if bests.len() < k || dist_sq < bests.peek().unwrap().0 {
+                if bests.len() == k {
+                    bests.pop();
+                }
+                bests.push((dist_sq, unsafe {
+                    (d as *const [CP32; 3]).offset_from(data_start) as usize
+                }));
+            }
+        }
+        return bests;
+    }
+
+    let median = data.len() / 2;
+    let level_dim = level % 3;
+    let stem = unsafe { data.get_unchecked(median) };
+
+    let dx = unsafe { stem.get_unchecked(level_dim).decompress() - query.get_unchecked(level_dim) };
+    let go_left = dx > 0.0;
+
+    let (left_data, median_and_right_data) = data.split_at(median);
+    if go_left {
+        bests = nearest_k(left_data, data_start, query, level + 1, k, bests);
+    } else {
+        let right_data = &median_and_right_data[1..];
+        bests = nearest_k(right_data, data_start, query, level + 1, k, bests);
+    }
+
+    let check_stem_and_other_dim = bests
+        .peek()
+        .map_or(bests.len() < k, |&(dist_sq, _)| dist_sq >= F32(dx * dx));
+    if check_stem_and_other_dim {
+        let dist_sq = F32(squared_euclidean(stem, query));
+        if bests.len() < k || dist_sq < bests.peek().unwrap().0 {
+            if bests.len() == k {
+                bests.pop();
+            }
+            bests.push((dist_sq, unsafe {
+                (stem as *const [CP32; 3]).offset_from(data_start) as usize
+            }));
+        }
+
+        if !go_left {
+            bests = nearest_k(left_data, data_start, query, level + 1, k, bests);
+        } else {
+            let right_data = &median_and_right_data[1..];
+            bests = nearest_k(right_data, data_start, query, level + 1, k, bests);
+        }
+    }
+
+    bests
+}
+
 pub fn squared_euclidean(a: &[CP32; 3], q: &[f32; 3]) -> f32 {
     unsafe {
         let dx = a.get_unchecked(0).decompress() - q.get_unchecked(0);
