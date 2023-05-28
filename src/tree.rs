@@ -1,7 +1,4 @@
-use crate::{
-    abacussummit::uncompressed::CP32, likely_stable::unlikely,
-    mirror_select::mirror_select_nth_unstable_by,
-};
+use crate::{abacussummit::uncompressed::CP32, mirror_select::mirror_select_nth_unstable_by};
 
 pub const BUCKET_SIZE: usize = 32;
 pub type Index = u32;

@@ -1,3 +1,8 @@
+//! This module contains code copied from the `likely_stable` crate
+//!
+//! repository: https://gitlab.com/okannen/likely
+//! crates.io: https://crates.io/crates/likely_stable
+
 #[inline(always)]
 /// Brings [likely](core::intrinsics::likely) to stable rust.
 pub const fn likely(b: bool) -> bool {
