@@ -1,4 +1,7 @@
-use crate::{abacussummit::uncompressed::CP32, mirror_select::mirror_select_nth_unstable_by};
+use crate::{
+    abacussummit::uncompressed::CP32, likely_stable::unlikely,
+    mirror_select::mirror_select_nth_unstable_by,
+};
 
 pub const BUCKET_SIZE: usize = 32;
 pub type Index = u32;
@@ -120,6 +123,86 @@ pub unsafe fn nearest_one(
     (best_dist_sq, best)
 }
 
+/// Queries a compressed tree made up of the points in `flat_data_ptr` for the nearest neighbor.
+/// Applies periodic boundary conditions on [-0.5, 0.5].
+///
+/// # Safety
+/// This pointer must be valid
+pub unsafe fn nearest_one_periodic(
+    data: &[[CP32; 3]],
+    data_start: *const [CP32; 3],
+    query: &[f32; 3],
+    level: usize,
+) -> (f32, usize) {
+    // First do real image
+    let (mut best_dist_sq, mut best) = nearest_one(data, data_start, query, level, 0, f32::MAX);
+
+    // Going to actually specify dimensions here in case we generalize to D != 3 and other boxsizes
+    const D: usize = 3;
+    const BOXSIZE: [f32; D] = [1.0; D];
+
+    // Find which images we need to check (skip real and start at 1)
+    for image in 1..2_usize.pow(D as u32) {
+        // Closest image in the form of bool array
+        let closest_image = (0..D as u32).map(|idx| ((image / 2_usize.pow(idx)) % 2) == 1);
+
+        // Find distance to corresponding side, edge, vertex or other higher dimensional equivalent
+        let dist_sq_to_side_edge_or_other = closest_image
+            .clone()
+            .enumerate()
+            .flat_map(|(side, flag)| {
+                if flag {
+                    // Get minimum of dist2 to lower and upper side
+                    // safety: made safe with const generic
+                    Some(unsafe {
+                        (BOXSIZE.get_unchecked(side) / 2.0 - query.get_unchecked(side).abs())
+                            .powi(2)
+                    })
+                } else {
+                    None
+                }
+            })
+            .fold(0.0, |acc, x| acc + x);
+
+        // Query with image if necessary
+        if dist_sq_to_side_edge_or_other <= best_dist_sq {
+            let mut image_to_check = query.clone();
+
+            for (idx, flag) in closest_image.enumerate() {
+                // If moving image along this dimension
+                if flag {
+                    // Do a single index here.
+                    // safety: made safe with const generic
+                    let query_component = unsafe { query.get_unchecked(idx) };
+
+                    // Single index here as well
+                    // safety: made safe with const generic
+                    let boxsize_component = unsafe { BOXSIZE.get_unchecked(idx) };
+
+                    // safety: made safe with const generic
+                    unsafe {
+                        if *query_component < 0.0 {
+                            // Add if in lower half of box
+                            *image_to_check.get_unchecked_mut(idx) =
+                                query_component + boxsize_component
+                        } else {
+                            // Subtract if in upper half of box
+                            *image_to_check.get_unchecked_mut(idx) =
+                                query_component - boxsize_component
+                        }
+                    }
+                }
+            }
+
+            // Check image
+            (best_dist_sq, best) =
+                nearest_one(data, data_start, &image_to_check, level, best, best_dist_sq);
+        }
+    }
+
+    (best_dist_sq, best)
+}
+
 use std::collections::BinaryHeap;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -213,6 +296,100 @@ pub unsafe fn nearest_k(
         } else {
             let right_data = &median_and_right_data[1..];
             bests = nearest_k(right_data, data_start, query, level + 1, k, bests);
+        }
+    }
+
+    bests
+}
+
+/// Queries a compressed tree made up of the points in `flat_data_ptr` for the nearest neighbor.
+/// Applies periodic boundary conditions on [-0.5, 0.5].
+///
+/// # Safety
+/// This pointer must be valid
+pub unsafe fn nearest_k_periodic(
+    data: &[[CP32; 3]],
+    data_start: *const [CP32; 3],
+    query: &[f32; 3],
+    level: usize,
+    k: usize,
+) -> BinaryHeap<(F32, usize)> {
+    // First do real image
+    let mut bests = nearest_k(
+        data,
+        data_start,
+        query,
+        level,
+        k,
+        BinaryHeap::with_capacity(k),
+    );
+
+    // Going to actually specify dimensions here in case we generalize to D != 3 and other boxsizes
+    const D: usize = 3;
+    const BOXSIZE: [f32; D] = [1.0; D];
+
+    // Find which images we need to check (skip real and start at 1)
+    for image in 1..2_usize.pow(D as u32) {
+        // Closest image in the form of bool array
+        let closest_image = (0..D as u32).map(|idx| ((image / 2_usize.pow(idx)) % 2) == 1);
+
+        // Find distance to corresponding side, edge, vertex or other higher dimensional equivalent
+        let dist_sq_to_side_edge_or_other = closest_image
+            .clone()
+            .enumerate()
+            .flat_map(|(side, flag)| {
+                if flag {
+                    // Get minimum of dist2 to lower and upper side
+                    // safety: made safe with const generic
+                    Some(unsafe {
+                        (BOXSIZE.get_unchecked(side) / 2.0 - query.get_unchecked(side).abs())
+                            .powi(2)
+                    })
+                } else {
+                    None
+                }
+            })
+            .fold(0.0, |acc, x| acc + x);
+
+        // Query with image if necessary
+        if dist_sq_to_side_edge_or_other <= bests.peek().unwrap().0 .0 {
+            let mut image_to_check = query.clone();
+
+            for (idx, flag) in closest_image.enumerate() {
+                // If moving image along this dimension
+                if flag {
+                    // Do a single index here.
+                    // safety: made safe with const generic
+                    let query_component = unsafe { query.get_unchecked(idx) };
+
+                    // Single index here as well
+                    // safety: made safe with const generic
+                    let boxsize_component = unsafe { BOXSIZE.get_unchecked(idx) };
+
+                    // safety: made safe with const generic
+                    unsafe {
+                        if *query_component < 0.0 {
+                            // Add if in lower half of box
+                            *image_to_check.get_unchecked_mut(idx) =
+                                query_component + boxsize_component
+                        } else {
+                            // Subtract if in upper half of box
+                            *image_to_check.get_unchecked_mut(idx) =
+                                query_component - boxsize_component
+                        }
+                    }
+                }
+            }
+
+            // Check image
+            bests = nearest_k(
+                data,
+                data_start,
+                &image_to_check,
+                level,
+                k,
+                BinaryHeap::with_capacity(k),
+            );
         }
     }
 
@@ -360,6 +537,25 @@ fn test_into_tree_query() {
     let query = [-0.1; 3];
     let (best_dist_sq, best) =
         unsafe { nearest_one(data, data.as_ptr(), &query, 0, 0, f32::INFINITY) };
+    println!("query: {query:?}");
+    println!("best: {:?} -> {best_dist_sq}", data[best]);
+}
+
+#[test]
+fn test_query_periodic() {
+    let data: &mut Vec<[CP32; 3]> = &mut vec![
+        [CP32::compress(0.0, 0.0); 3],
+        [CP32::compress(0.1, 0.0); 3],
+        [CP32::compress(0.49, 0.0); 3],
+    ];
+    let idxs: &mut Vec<Index> = &mut (0..data.len() as Index).collect();
+
+    into_tree(data, idxs, 0);
+    println!("{data:#?}");
+    println!("{idxs:#?}");
+
+    let query = [-0.49; 3];
+    let (best_dist_sq, best) = unsafe { nearest_one_periodic(data, data.as_ptr(), &query, 0) };
     println!("query: {query:?}");
     println!("best: {:?} -> {best_dist_sq}", data[best]);
 }
