@@ -36,6 +36,7 @@ pub fn nearest_one(
     mut best: usize,
     mut best_dist_sq: f32,
 ) -> (f32, usize) {
+    // Deal with bucket
     if data.len() <= BUCKET_SIZE {
         for d in data {
             let dist_sq = squared_euclidean(d, query);
@@ -48,7 +49,7 @@ pub fn nearest_one(
         return (best_dist_sq, best);
     }
 
-    // Do current level
+    // Get level stem
     let median = data.len() / 2;
     let level_dim = level % 3;
     let stem = unsafe { data.get_unchecked(median) };
@@ -136,6 +137,7 @@ pub fn nearest_k(
     k: usize,
     mut bests: BinaryHeap<(F32, usize)>,
 ) -> BinaryHeap<(F32, usize)> {
+    // Deal with bucket
     if data.len() <= BUCKET_SIZE {
         for d in data {
             let dist_sq = F32(squared_euclidean(d, query));
@@ -151,6 +153,7 @@ pub fn nearest_k(
         return bests;
     }
 
+    // Get level stem
     let median = data.len() / 2;
     let level_dim = level % 3;
     let stem = unsafe { data.get_unchecked(median) };
@@ -178,6 +181,7 @@ pub fn nearest_k(
     };
 
     if check_stem_and_other_dim {
+        // Check stem
         let dist_sq = F32(squared_euclidean(stem, query));
         if bests.len() < k || dist_sq < bests.peek().unwrap().0 {
             if bests.len() == k {
@@ -188,6 +192,8 @@ pub fn nearest_k(
             }));
         }
 
+        // Check other dim
+        // Invert logic
         if !go_left {
             bests = nearest_k(left_data, data_start, query, level + 1, k, bests);
         } else {
