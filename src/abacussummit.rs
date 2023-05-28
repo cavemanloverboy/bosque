@@ -57,10 +57,6 @@ pub fn decompress_position(compressed: &u32) -> f32 {
 }
 
 impl<const D: usize> MockTree<D> {
-    pub fn new_abacus(root: [f32; D], left: [f32; D], right: [f32; D]) -> MockTree<D> {
-        MockTree { root, left, right }
-    }
-
     pub fn from_abacussummit_compressed(compressed_bytes: &[u8]) -> MockTree<D> {
         // Iterator over u32 values
         let compressed_dwords: &[u32] = bytemuck::cast_slice(compressed_bytes);
