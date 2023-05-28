@@ -8,7 +8,7 @@ use rand::{rngs::ThreadRng, Rng};
 use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 const NDATA: usize = 10_000;
-const NQUERY: usize = 10_000;
+const NQUERY: usize = 100_000;
 
 const K: usize = 32;
 #[test]
@@ -48,7 +48,7 @@ fn test_brute_force_k() -> Result<(), Box<dyn Error>> {
 
     // Brute force check results
     query
-        .iter()
+        .par_iter()
         .enumerate()
         .for_each(|(i, q)| assert_eq!(results[i], brute_force(q, &data), "failed on {i}"));
 

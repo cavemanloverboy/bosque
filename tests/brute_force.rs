@@ -8,7 +8,7 @@ use rand::{rngs::ThreadRng, Rng};
 use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 const NDATA: usize = 10_000;
-const NQUERY: usize = 100_000;
+const NQUERY: usize = 1_000_000;
 
 #[test]
 fn test_brute_force() -> Result<(), Box<dyn Error>> {
@@ -33,7 +33,7 @@ fn test_brute_force() -> Result<(), Box<dyn Error>> {
     // Query tree
     let results: Vec<_> = query
         .par_iter()
-        .map(|q| nearest_one(&data, data.as_ptr(), q, 0, 0, f32::MAX))
+        .map(|q| unsafe { nearest_one(&data, data.as_ptr(), q, 0, 0, f32::MAX) })
         .collect();
 
     // Brute force check results
