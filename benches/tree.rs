@@ -43,7 +43,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("query_const", |b| {
         b.iter(|| {
             for _ in 0..QUERIES {
-                drop(tree::nearest_one(
+                black_box(tree::nearest_one(
                     black_box(&data),
                     data.as_ptr(),
                     black_box(&query),
@@ -58,7 +58,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("query_constf32", |b| {
         b.iter(|| {
             for _ in 0..QUERIES {
-                drop(treef32::nearest_one(
+                black_box(treef32::nearest_one(
                     black_box(&data_f32),
                     data_f32.as_ptr(),
                     black_box(&query),
@@ -76,7 +76,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("query", |b| {
         b.iter(|| {
             for q in &queries {
-                drop(tree::nearest_one(
+                black_box(tree::nearest_one(
                     black_box(&data),
                     data.as_ptr(),
                     black_box(&q),
@@ -90,7 +90,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("query_par", |b| {
         b.iter(|| {
             queries.par_iter().for_each(|q| {
-                drop(tree::nearest_one(
+                black_box(tree::nearest_one(
                     black_box(&data),
                     data.as_ptr(),
                     black_box(&q),
@@ -105,7 +105,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("queryf32", |b| {
         b.iter(|| {
             for q in &queries {
-                drop(treef32::nearest_one(
+                black_box(treef32::nearest_one(
                     black_box(&data_f32),
                     data_f32.as_ptr(),
                     black_box(&q),
@@ -120,7 +120,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("queryf32_par", |b| {
         b.iter(|| {
             queries.par_iter().for_each(|q| {
-                drop(treef32::nearest_one(
+                black_box(treef32::nearest_one(
                     black_box(&data_f32),
                     data_f32.as_ptr(),
                     black_box(&q),
