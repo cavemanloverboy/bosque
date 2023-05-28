@@ -13,7 +13,7 @@ pub fn into_tree(data: &mut [[CP32; 3]], idxs: &mut [Index], level: usize) {
     let level_dim = level % 3;
     mirror_select_nth_unstable_by(data, idxs, median, |a, b| unsafe {
         a.get_unchecked(level_dim)
-            .partial_cmp(&b.get_unchecked(level_dim))
+            .partial_cmp(b.get_unchecked(level_dim))
             .unwrap() // this better be a notnan...
     });
 
