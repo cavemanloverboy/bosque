@@ -3,16 +3,16 @@
 default: build
 
 build:
-	@echo "\nBuilding library...\n"
+	@echo "\n--- Building library... ---\n"
 	RUSTFLAGS="-Ctarget-cpu=native" cargo build --release
-	@echo "\nLibrary built at target/release\n"
+	@echo "\n--- Library built at target/release ---\n"
 
 clean:
-	@echo "Cleaning project...\n"
+	@echo "\n--- Cleaning project... ---\n"
 	cargo clean
-	@echo "\nProject cleaned.\n"
+	@echo "\n--- Project cleaned ---\n"
 
 mock: build
-	@echo "\nBuilding mock script...\n"
+	@echo "\n--- Building mock script... ---\n"
 	gcc -o examples/abacus_mock examples/abacus_mock.c -L./target/release/ -lbosque -O3 -march=native
-	@echo "\nExecutable built at examples/abacus_mock\n"
+	@echo "\n--- Executable built at examples/abacus_mock ---\n"
