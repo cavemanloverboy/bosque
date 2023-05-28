@@ -1,3 +1,8 @@
+//! This module was copied from kiddo by Scott Donnelly.
+//!
+//! repository: https://github.com/sdd/kiddo
+//! crates.io: https://crates.io/crates/kiddo
+
 use std::cmp::Ordering;
 use std::cmp::Ordering::Less;
 use std::mem::MaybeUninit;
