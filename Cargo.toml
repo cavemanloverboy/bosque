@@ -7,7 +7,8 @@ license = "Apache-2.0 OR MIT"
 authors = ["Cavey Cool <caveycool@gmail.com>"]
 
 [lib]
-crate-type = ["lib", "staticlib"] # Creates static lib
+# crate-type = ["lib", "staticlib"] # Creates static lib
+crate-type = ["lib", "cdylib"] # Creates dynamic lib
 
 [features]
 default = ["uncompressed", "parallel"]
@@ -25,7 +26,7 @@ cbindgen = "0.24.3"
 
 [dev-dependencies]
 criterion = "0.5.0"
-kiddo = { version = "2.0.2", features = ["rkyv", "serialize_rkyv"] }
+kiddo = { version = "2.1.0", features = ["rkyv", "serialize_rkyv"] }
 num-format = "0.4.4"
 rand = "0.8.5"
 rayon = "1.7.0"
