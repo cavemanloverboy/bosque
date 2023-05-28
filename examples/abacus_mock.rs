@@ -93,7 +93,7 @@ fn main() {
         ))
     };
     println!(
-        "Carried out {NUM_QUERIES} queries in {} millis\n",
+        "Carried out {NUM_QUERIES} queries in {} millis",
         query_timer.elapsed().as_millis(),
     );
     let query_timer = Instant::now();
@@ -106,7 +106,7 @@ fn main() {
         )
     };
     println!(
-        "Carried out {NUM_QUERIES} queries in parallel in {} millis\n",
+        "Carried out {NUM_QUERIES} queries in parallel in {} millis",
         query_timer.elapsed().as_millis(),
     );
 
