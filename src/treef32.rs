@@ -1,5 +1,4 @@
 use crate::mirror_select::mirror_select_nth_unstable_by;
-
 pub const BUCKET_SIZE: usize = 32;
 pub type Index = u32;
 
@@ -36,6 +35,7 @@ pub fn nearest_one(
     mut best: usize,
     mut best_dist_sq: f32,
 ) -> (f32, usize) {
+    // Deal with bucket
     if data.len() <= BUCKET_SIZE {
         for d in data {
             let dist_sq = squared_euclidean(d, query);
@@ -48,7 +48,7 @@ pub fn nearest_one(
         return (best_dist_sq, best);
     }
 
-    // Do current level
+    // Get level stem
     let median = data.len() / 2;
     let level_dim = level % 3;
     let stem = unsafe { data.get_unchecked(median) };
@@ -113,6 +113,100 @@ pub fn nearest_one(
     }
 
     (best_dist_sq, best)
+}
+
+use std::collections::BinaryHeap;
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct F32(pub f32);
+
+impl Eq for F32 {}
+
+impl Ord for F32 {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).expect("you likely had a nan")
+    }
+}
+impl PartialOrd for F32 {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.0.partial_cmp(&other.0)
+    }
+}
+
+pub fn nearest_k(
+    data: &[[f32; 3]],
+    data_start: *const [f32; 3],
+    query: &[f32; 3],
+    level: usize,
+    k: usize,
+    mut bests: BinaryHeap<(F32, usize)>,
+) -> BinaryHeap<(F32, usize)> {
+    // Deal with bucket
+    if data.len() <= BUCKET_SIZE {
+        for d in data {
+            let dist_sq = F32(squared_euclidean(d, query));
+            if bests.len() < k || dist_sq < bests.peek().unwrap().0 {
+                if bests.len() == k {
+                    bests.pop();
+                }
+                bests.push((dist_sq, unsafe {
+                    (d as *const [f32; 3]).offset_from(data_start) as usize
+                }));
+            }
+        }
+        return bests;
+    }
+
+    // Get level stem
+    let median = data.len() / 2;
+    let level_dim = level % 3;
+    let stem = unsafe { data.get_unchecked(median) };
+
+    let dx = unsafe { stem.get_unchecked(level_dim) - query.get_unchecked(level_dim) };
+    let go_left = dx > 0.0;
+
+    let (left_data, median_and_right_data) = data.split_at(median);
+    if go_left {
+        bests = nearest_k(left_data, data_start, query, level + 1, k, bests);
+    } else {
+        let right_data = &median_and_right_data[1..];
+        bests = nearest_k(right_data, data_start, query, level + 1, k, bests);
+    }
+
+    // Check whether we have to check stem or other dim
+    // 1) if bests is not full (regardless of current bests)
+    // 2) if plane is closer than kth best
+    let check_stem_and_other_dim = if bests.len() < k {
+        true
+    } else {
+        bests
+            .peek()
+            .map_or(true, |&(dist_sq, _)| dist_sq >= F32(dx * dx))
+    };
+
+    if check_stem_and_other_dim {
+        // Check stem
+        let dist_sq = F32(squared_euclidean(stem, query));
+        if bests.len() < k || dist_sq < bests.peek().unwrap().0 {
+            if bests.len() == k {
+                bests.pop();
+            }
+            bests.push((dist_sq, unsafe {
+                (stem as *const [f32; 3]).offset_from(data_start) as usize
+            }));
+        }
+
+        // Check other dim
+        // Invert logic
+        if !go_left {
+            bests = nearest_k(left_data, data_start, query, level + 1, k, bests);
+        } else {
+            let right_data = &median_and_right_data[1..];
+            bests = nearest_k(right_data, data_start, query, level + 1, k, bests);
+        }
+    }
+
+    bests
 }
 
 pub fn squared_euclidean(a: &[f32; 3], q: &[f32; 3]) -> f32 {

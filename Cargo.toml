@@ -11,14 +11,10 @@ authors = ["Cavey Cool <caveycool@gmail.com>"]
 crate-type = ["lib", "cdylib"] # Creates dynamic lib
 
 [features]
-default = ["uncompressed", "parallel"]
-uncompressed = ["num-traits", "rkyv"]
+default = ["parallel"]
 parallel = ["rayon"]
 
 [dependencies]
-bytemuck = "1.13.1"
-num-traits = { version = "0.2.15", optional = true }
-rkyv = { version = "0.7", default-features = false, optional = true, features = ["alloc", "size_64", "copy_unsafe"] }
 rayon = { version = "1.7.0", optional = true }
 
 [build-dependencies]
@@ -26,11 +22,9 @@ cbindgen = "0.24.3"
 
 [dev-dependencies]
 criterion = "0.5.0"
-kiddo = { version = "2.1.0", features = ["rkyv", "serialize_rkyv"] }
 num-format = "0.4.4"
 rand = "0.8.5"
 rayon = "1.7.0"
-rkyv = { version = "0.7", default-features = false, features = ["alloc", "size_64", "copy_unsafe"] }
 
 #[[bench]]
 #name = "deserialize"

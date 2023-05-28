@@ -14,15 +14,6 @@ typedef struct DecompressedPair {
 } DecompressedPair;
 
 /**
- * A super simple 3-pt tree used for testing and proof of concept.
- */
-typedef struct MockTree_3 {
-  float root[3];
-  float left[3];
-  float right[3];
-} MockTree_3;
-
-/**
  * A wrapper for the `u32` d which holds the compressed position and velocity.
  * It provides utilities for using the positional information.
  *
@@ -51,17 +42,11 @@ uint32_t compress(float position, float velocity);
  */
 struct DecompressedPair decompress(uint32_t compressed);
 
-struct MockTree_3 from_abacussummit_compressed(const uint8_t *compressed_bytes,
-                                               uintptr_t bytes_len);
-
-void pretty_print_tree(const char *prefix, const struct MockTree_3 *tree);
-
-struct MockTree_3 new_abacus(const float (*root)[3],
-                             const float (*left)[3],
-                             const float (*right)[3]);
-
 void construct_compressed_tree(struct CP32 *flat_data_ptr, uint64_t num_points, Index *idxs_ptr);
 
+/**
+ * Queries a compressed tree whose
+ */
 const struct QueryNearest *query_compressed_nearest(const struct CP32 *flat_data_ptr,
                                                     uint64_t num_points,
                                                     const float *flat_query_ptr,

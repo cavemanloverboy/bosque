@@ -118,7 +118,7 @@ pub fn nearest_one(
 
 use std::collections::BinaryHeap;
 
-#[derive(Debug, PartialOrd, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct F32(pub f32);
 
 impl Eq for F32 {}
@@ -126,6 +126,12 @@ impl Eq for F32 {}
 impl Ord for F32 {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.partial_cmp(other).expect("you likely had a nan")
+    }
+}
+
+impl PartialOrd for F32 {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.0.partial_cmp(&other.0)
     }
 }
 
@@ -216,6 +222,8 @@ pub fn squared_euclidean(a: &[CP32; 3], q: &[f32; 3]) -> f32 {
 }
 
 pub mod ffi {
+    use crate::cast::{cast_slice, cast_slice_mut};
+
     use super::{into_tree, Index, CP32};
 
     #[repr(C)]
@@ -233,13 +241,14 @@ pub mod ffi {
     ) {
         let flat_data: &mut [CP32] =
             unsafe { std::slice::from_raw_parts_mut(flat_data_ptr, 3 * num_points as usize) };
-        let data: &mut [[CP32; 3]] = bytemuck::cast_slice_mut(flat_data);
+        let data: &mut [[CP32; 3]] = cast_slice_mut(flat_data);
         let idxs: &mut [Index] =
             unsafe { std::slice::from_raw_parts_mut(idxs_ptr, num_points as usize) };
         into_tree(data, idxs, 0);
     }
 
     #[no_mangle]
+    /// Queries a compressed tree whose
     pub unsafe extern "C" fn query_compressed_nearest(
         flat_data_ptr: *const CP32,
         num_points: u64,
@@ -247,11 +256,11 @@ pub mod ffi {
         num_queries: u64,
     ) -> *const QueryNearest {
         let flat_data: &[CP32] = std::slice::from_raw_parts(flat_data_ptr, 3 * num_points as usize);
-        let data: &[[CP32; 3]] = bytemuck::cast_slice(flat_data);
+        let data: &[[CP32; 3]] = cast_slice(flat_data);
 
         let flat_queries: &[f32] =
             std::slice::from_raw_parts(flat_query_ptr, 3 * num_queries as usize);
-        let queries: &[[f32; 3]] = bytemuck::cast_slice(flat_queries);
+        let queries: &[[f32; 3]] = cast_slice(flat_queries);
 
         let results: Vec<QueryNearest> = queries
             .iter()
@@ -280,11 +289,11 @@ pub mod ffi {
         use rayon::prelude::IntoParallelRefIterator;
 
         let flat_data: &[CP32] = std::slice::from_raw_parts(flat_data_ptr, 3 * num_points as usize);
-        let data: &[[CP32; 3]] = bytemuck::cast_slice(flat_data);
+        let data: &[[CP32; 3]] = cast_slice(flat_data);
 
         let flat_queries: &[f32] =
             std::slice::from_raw_parts(flat_query_ptr, 3 * num_queries as usize);
-        let queries: &[[f32; 3]] = bytemuck::cast_slice(flat_queries);
+        let queries: &[[f32; 3]] = cast_slice(flat_queries);
 
         let results: Vec<QueryNearest> = queries
             .par_iter()

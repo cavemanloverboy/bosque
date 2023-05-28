@@ -7,6 +7,7 @@
 //! 4) Query tree
 use bosque::{
     abacussummit::uncompressed::CP32,
+    cast::{cast_slice, cast_slice_mut},
     tree::ffi::{
         construct_compressed_tree, query_compressed_nearest, query_compressed_nearest_parallel,
     },
@@ -49,8 +50,8 @@ fn main() {
 
     // Create tree on compressed data (using extern "C")
     let construction_timer = Instant::now();
-    let flat_data_ptr = bytemuck::cast_slice_mut(&mut cpos);
-    let idxs_ptr = bytemuck::cast_slice_mut(&mut idx);
+    let flat_data_ptr = cast_slice_mut(&mut cpos);
+    let idxs_ptr = cast_slice_mut(&mut idx);
     unsafe {
         construct_compressed_tree(
             flat_data_ptr.as_mut_ptr(),
@@ -64,7 +65,7 @@ fn main() {
     );
 
     // Query near origin (using extern "C")
-    let flat_data_ptr = bytemuck::cast_slice(&cpos);
+    let flat_data_ptr = cast_slice(&cpos);
     let result = unsafe {
         *query_compressed_nearest(
             flat_data_ptr.as_ptr(),
@@ -103,19 +104,20 @@ fn main() {
         "Carried out {NUM_QUERIES} queries in {} millis",
         query_timer.elapsed().as_millis(),
     );
-    let query_timer = Instant::now();
-    let result = unsafe {
-        query_compressed_nearest_parallel(
-            flat_data_ptr.as_ptr(),
-            NUM_POINTS as u64,
-            queries.as_ptr(),
-            NUM_QUERIES as u64,
-        )
-    };
-    println!(
-        "Carried out {NUM_QUERIES} queries in parallel in {} millis",
-        query_timer.elapsed().as_millis(),
-    );
-
-    drop(result);
+    #[cfg(feature = "parallel")]
+    {
+        let query_timer = Instant::now();
+        unsafe {
+            std::hint::black_box(query_compressed_nearest_parallel(
+                flat_data_ptr.as_ptr(),
+                NUM_POINTS as u64,
+                queries.as_ptr(),
+                NUM_QUERIES as u64,
+            ))
+        };
+        println!(
+            "Carried out {NUM_QUERIES} queries in parallel in {} millis",
+            query_timer.elapsed().as_millis(),
+        );
+    }
 }
