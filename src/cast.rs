@@ -73,30 +73,6 @@ pub fn cast_slice<A, B>(a: &[A]) -> &[B] {
     }
 }
 
-// /// Try to convert `&mut [A]` into `&mut [B]` (possibly with a change in
-// /// length).
-// ///
-// /// As [`try_cast_slice`], but `&mut`.
-// #[inline]
-// pub(crate) unsafe fn cast_slice_mut<A: Copy, B: Copy>(
-//     a: &mut [A],
-// ) -> Result<&mut [B], PodCastError> {
-//     // Note(Lokathor): everything with `align_of` and `size_of` will optimize away
-//     // after monomorphization.
-//     if align_of::<B>() > align_of::<A>() && (a.as_mut_ptr() as usize) % align_of::<B>() != 0 {
-//         Err(PodCastError::TargetAlignmentGreaterAndInputNotAligned)
-//     } else if size_of::<B>() == size_of::<A>() {
-//         Ok(unsafe { core::slice::from_raw_parts_mut(a.as_mut_ptr() as *mut B, a.len()) })
-//     } else if size_of::<A>() == 0 || size_of::<B>() == 0 {
-//         Err(PodCastError::SizeMismatch)
-//     } else if core::mem::size_of_val(a) % size_of::<B>() == 0 {
-//         let new_len = core::mem::size_of_val(a) / size_of::<B>();
-//         Ok(unsafe { core::slice::from_raw_parts_mut(a.as_mut_ptr() as *mut B, new_len) })
-//     } else {
-//         Err(PodCastError::OutputSliceWouldHaveSlop)
-//     }
-// }
-
 // This is here just for copying error messages
 // /// The things that can go wrong when casting between [`Pod`] data forms.
 // #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

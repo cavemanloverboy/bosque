@@ -28,7 +28,11 @@ pub fn into_tree(data: &mut [[CP32; 3]], idxs: &mut [Index], level: usize) {
     into_tree(right_data, right_idxs, level + 1);
 }
 
-pub fn nearest_one(
+/// Queries a compressed tree made up of the points in `flat_data_ptr` for the nearest neighbor.
+///
+/// # Safety
+/// This pointer must be valid
+pub unsafe fn nearest_one(
     data: &[[CP32; 3]],
     data_start: *const [CP32; 3],
     query: &[f32; 3],
@@ -135,7 +139,11 @@ impl PartialOrd for F32 {
     }
 }
 
-pub fn nearest_k(
+/// Queries a compressed tree made up of the points in `flat_data_ptr` for the k nearest neighbors.
+///
+/// # Safety
+/// This pointer must be valid
+pub unsafe fn nearest_k(
     data: &[[CP32; 3]],
     data_start: *const [CP32; 3],
     query: &[f32; 3],
@@ -233,6 +241,11 @@ pub mod ffi {
         pub idx_within: u64,
     }
 
+    /// Builds a compressed tree made up of the `num_points` points in `flat_data_ptr` inplace.
+    ///
+    /// # Safety
+    /// Slices to the data are made from these raw parts. This pointer and length must be
+    /// correct and valid.
     #[no_mangle]
     pub unsafe extern "C" fn construct_compressed_tree(
         flat_data_ptr: *mut CP32,
@@ -247,8 +260,12 @@ pub mod ffi {
         into_tree(data, idxs, 0);
     }
 
+    /// Queries a compressed tree made up of the `num_points` points in `flat_data_ptr` for the nearest neighbor.
+    ///
+    /// # Safety
+    /// Slices to the data and queries are made from these raw parts. These pointers and lengths must be
+    /// correct and valid.
     #[no_mangle]
-    /// Queries a compressed tree whose
     pub unsafe extern "C" fn query_compressed_nearest(
         flat_data_ptr: *const CP32,
         num_points: u64,
@@ -277,8 +294,14 @@ pub mod ffi {
         Box::leak(results.into_boxed_slice()).as_ptr()
     }
 
-    #[no_mangle]
+    /// Queries a compressed tree made up of the `num_points` points in `flat_data_ptr` for the nearest neighbor.
+    /// This query is parallelized via rayon
+    ///
+    /// # Safety
+    /// Slices to the data and queries are made from these raw parts. These pointers and lengths must be
+    /// correct and valid.
     #[cfg(feature = "parallel")]
+    #[no_mangle]
     pub unsafe extern "C" fn query_compressed_nearest_parallel(
         flat_data_ptr: *const CP32,
         num_points: u64,
@@ -314,10 +337,10 @@ pub mod ffi {
 #[test]
 fn test_into_tree() {
     const DATA: usize = BUCKET_SIZE * 3;
-    let ref mut data: Vec<[CP32; 3]> = (0..DATA)
+    let data: &mut Vec<[CP32; 3]> = &mut (0..DATA)
         .map(|_| [CP32::compress(rand::random::<f32>() - 0.5, 0.0); 3])
         .collect();
-    let ref mut idxs: Vec<Index> = (0..DATA as Index).collect();
+    let idxs: &mut Vec<Index> = &mut (0..DATA as Index).collect();
 
     into_tree(data, idxs, 0);
 }
@@ -325,17 +348,18 @@ fn test_into_tree() {
 #[test]
 fn test_into_tree_query() {
     const DATA: usize = BUCKET_SIZE * 3;
-    let ref mut data: Vec<[CP32; 3]> = (0..DATA)
+    let data: &mut Vec<[CP32; 3]> = &mut (0..DATA)
         .map(|_| [CP32::compress(rand::random::<f32>() - 0.5, 0.0); 3])
         .collect();
-    let ref mut idxs: Vec<Index> = (0..DATA as Index).collect();
+    let idxs: &mut Vec<Index> = &mut (0..DATA as Index).collect();
 
     into_tree(data, idxs, 0);
     println!("{data:#?}");
     println!("{idxs:#?}");
 
     let query = [-0.1; 3];
-    let (best_dist_sq, best) = nearest_one(data, data.as_ptr(), &query, 0, 0, f32::INFINITY);
+    let (best_dist_sq, best) =
+        unsafe { nearest_one(data, data.as_ptr(), &query, 0, 0, f32::INFINITY) };
     println!("query: {query:?}");
     println!("best: {:?} -> {best_dist_sq}", data[best]);
 }

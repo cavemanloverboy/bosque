@@ -41,7 +41,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut c = c.benchmark_group("query");
     let c = c.sample_size(10);
     c.bench_function("query_const", |b| {
-        b.iter(|| {
+        b.iter(|| unsafe {
             for _ in 0..QUERIES {
                 black_box(tree::nearest_one(
                     black_box(&data),
@@ -56,7 +56,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
     c.bench_function("query_constf32", |b| {
-        b.iter(|| {
+        b.iter(|| unsafe {
             for _ in 0..QUERIES {
                 black_box(treef32::nearest_one(
                     black_box(&data_f32),
@@ -74,12 +74,12 @@ fn criterion_benchmark(c: &mut Criterion) {
         .map(|_| [rand::random::<f32>() - 0.5; 3])
         .collect();
     c.bench_function("query", |b| {
-        b.iter(|| {
+        b.iter(|| unsafe {
             for q in &queries {
                 black_box(tree::nearest_one(
                     black_box(&data),
                     data.as_ptr(),
-                    black_box(&q),
+                    black_box(q),
                     0,
                     0,
                     f32::INFINITY,
@@ -88,12 +88,12 @@ fn criterion_benchmark(c: &mut Criterion) {
         });
     });
     c.bench_function("query_par", |b| {
-        b.iter(|| {
+        b.iter(|| unsafe {
             queries.par_iter().for_each(|q| {
                 black_box(tree::nearest_one(
                     black_box(&data),
                     data.as_ptr(),
-                    black_box(&q),
+                    black_box(q),
                     0,
                     0,
                     f32::INFINITY,
@@ -103,12 +103,12 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
     c.bench_function("queryf32", |b| {
-        b.iter(|| {
+        b.iter(|| unsafe {
             for q in &queries {
                 black_box(treef32::nearest_one(
                     black_box(&data_f32),
                     data_f32.as_ptr(),
-                    black_box(&q),
+                    black_box(q),
                     0,
                     0,
                     f32::INFINITY,
@@ -118,12 +118,12 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
     c.bench_function("queryf32_par", |b| {
-        b.iter(|| {
+        b.iter(|| unsafe {
             queries.par_iter().for_each(|q| {
                 black_box(treef32::nearest_one(
                     black_box(&data_f32),
                     data_f32.as_ptr(),
-                    black_box(&q),
+                    black_box(q),
                     0,
                     0,
                     f32::INFINITY,

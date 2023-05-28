@@ -7,8 +7,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let bytes: Vec<u8> = data
         .clone()
         .into_iter()
-        .map(f32::to_le_bytes)
-        .flatten()
+        .flat_map(f32::to_le_bytes)
         .collect();
     let compressed_dwords: Vec<u32> = data
         .into_iter()

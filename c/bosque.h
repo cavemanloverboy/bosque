@@ -42,16 +42,35 @@ uint32_t compress(float position, float velocity);
  */
 struct DecompressedPair decompress(uint32_t compressed);
 
+/**
+ * Builds a compressed tree made up of the `num_points` points in `flat_data_ptr` inplace.
+ *
+ * # Safety
+ * Slices to the data are made from these raw parts. This pointer and length must be
+ * correct and valid.
+ */
 void construct_compressed_tree(struct CP32 *flat_data_ptr, uint64_t num_points, Index *idxs_ptr);
 
 /**
- * Queries a compressed tree whose
+ * Queries a compressed tree made up of the `num_points` points in `flat_data_ptr` for the nearest neighbor.
+ *
+ * # Safety
+ * Slices to the data and queries are made from these raw parts. These pointers and lengths must be
+ * correct and valid.
  */
 const struct QueryNearest *query_compressed_nearest(const struct CP32 *flat_data_ptr,
                                                     uint64_t num_points,
                                                     const float *flat_query_ptr,
                                                     uint64_t num_queries);
 
+/**
+ * Queries a compressed tree made up of the `num_points` points in `flat_data_ptr` for the nearest neighbor.
+ * This query is parallelized via rayon
+ *
+ * # Safety
+ * Slices to the data and queries are made from these raw parts. These pointers and lengths must be
+ * correct and valid.
+ */
 const struct QueryNearest *query_compressed_nearest_parallel(const struct CP32 *flat_data_ptr,
                                                              uint64_t num_points,
                                                              const float *flat_query_ptr,

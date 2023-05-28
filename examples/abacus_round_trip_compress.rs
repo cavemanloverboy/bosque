@@ -3,6 +3,7 @@
 //! `f32/f32` -> `u32` -> `f32/f32`
 use bosque::abacussummit;
 
+#[allow(clippy::excessive_precision)]
 fn main() {
     // Initialize some test values in [-0.5, 0.5] x [-6000, 6000]
     let x: f32 = -0.33;
