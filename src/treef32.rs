@@ -377,14 +377,7 @@ pub unsafe fn nearest_k_periodic(
             }
 
             // Check image
-            bests = nearest_k(
-                data,
-                data_start,
-                &image_to_check,
-                level,
-                k,
-                BinaryHeap::with_capacity(k),
-            );
+            bests = nearest_k(data, data_start, &image_to_check, level, k, bests);
         }
     }
 
