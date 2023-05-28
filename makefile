@@ -14,5 +14,5 @@ clean:
 
 mock: build
 	@echo "\n--- Building mock script... ---\n"
-	gcc -o examples/abacus_mock examples/abacus_mock.c -L./target/release/ -lbosque -O3 -march=native
-	@echo "\n--- Executable built at examples/abacus_mock ---\n"
+	gcc -o abacus_mock.out examples/abacus_mock.c -L./target/release/ -lbosque -O3 -march=native
+	@echo "\n--- Executable built at abacus_mock.out ---\n"
