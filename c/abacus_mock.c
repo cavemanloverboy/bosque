@@ -102,14 +102,14 @@ int main() {
     long long start_queries = timeInMicros();
     const QueryNearest* nearest = query_compressed_nearest(cpos, NUM_POINTS, queries, NUM_QUERIES);
     long long stop_queries = timeInMicros();
-    double query_time = ((double)(stop_queries - start_queries)) / 1000;
-    printf("Carried out %d queries in %f millis\n", NUM_QUERIES, query_time);
+    long long query_time = (stop_queries - start_queries) / 1000;
+    printf("Carried out %d queries in %lld millis\n", NUM_QUERIES, query_time);
 
     long long start_par_queries = timeInMicros();
     const QueryNearest* nearest_par = query_compressed_nearest_parallel(cpos, NUM_POINTS, queries, NUM_QUERIES);
     long long stop_par_queries = timeInMicros();
-    double par_query_time = ((double)(stop_par_queries - start_par_queries)) / 1000;
-    printf("Carried out %d queries in parallel in %f millis\n", NUM_QUERIES, par_query_time);
+    long long par_query_time = (stop_par_queries - start_par_queries) / 1000;
+    printf("Carried out %d queries in parallel in %lld millis\n", NUM_QUERIES, par_query_time);
 
     free(pos);
     free(vel);
