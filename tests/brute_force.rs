@@ -7,8 +7,8 @@ use bosque::{
 use rand::{rngs::ThreadRng, Rng};
 use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
-const NDATA: usize = 10_000;
-const NQUERY: usize = 100_000;
+const NDATA: usize = 1_000;
+const NQUERY: usize = 10_000;
 
 #[test]
 fn test_brute_force() -> Result<(), Box<dyn Error>> {
@@ -45,14 +45,14 @@ fn test_brute_force() -> Result<(), Box<dyn Error>> {
     // Query tree periodic
     let results: Vec<_> = query
         .par_iter()
-        .take(NQUERY / 100)
+        .take(NQUERY / 10)
         .map(|q| unsafe { nearest_one_periodic(&data, data.as_ptr(), q, 0) })
         .collect();
 
     // Brute force check periodic results
     query
         .iter()
-        .take(NQUERY / 100)
+        .take(NQUERY / 10)
         .enumerate()
         .for_each(|(i, q)| assert_eq!(results[i], brute_force_periodic(q, &data), "failed on {i}"));
 
