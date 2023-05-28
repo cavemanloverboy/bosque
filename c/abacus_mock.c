@@ -4,9 +4,7 @@
 #include <math.h>
 #include <sys/time.h>
 
-//#define NUM_POINTS 512*512*512
-//#define NUM_POINTS 128*128*128
-#define NUM_POINTS 100 * 1000
+#define NUM_POINTS 512 * 512 * 512
 #define NUM_QUERIES 1000 * 1000
 
 typedef struct {
@@ -92,9 +90,9 @@ int main() {
         exit(EXIT_FAILURE);
     }
     for(int i = 0; i < NUM_QUERIES; i++) {
-        queries[3*i] = (float)rand() / (float)RAND_MAX;
-        queries[3*i+1] = (float)rand() / (float)RAND_MAX;
-        queries[3*i+2] = (float)rand() / (float)RAND_MAX;
+        queries[3*i] = generateRandomFloat() - 0.5;
+        queries[3*i+1] = generateRandomFloat() - 0.5;
+        queries[3*i+2] = generateRandomFloat() - 0.5;
     }
     printf("Initialized queries\n");
 

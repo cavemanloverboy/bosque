@@ -12,6 +12,7 @@ struct DecompressedPair {
   float vel;
 };
 
+/// A super simple 3-pt tree used for testing and proof of concept.
 template<uintptr_t D>
 struct MockTree {
   float root[D];

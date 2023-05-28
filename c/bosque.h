@@ -13,6 +13,9 @@ typedef struct DecompressedPair {
   float vel;
 } DecompressedPair;
 
+/**
+ * A super simple 3-pt tree used for testing and proof of concept.
+ */
 typedef struct MockTree_3 {
   float root[3];
   float left[3];
