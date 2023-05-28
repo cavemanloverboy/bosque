@@ -1,3 +1,7 @@
+//! A minimal proof of concept for a zero mem-overhead kdtree.
+//!
+//! This tree does not support zero-copy deserialization as the stored
+//! values are compressed
 use bosque::{abacussummit, MockTree};
 
 fn main() {
@@ -19,7 +23,7 @@ fn main() {
     let particle_velocities = [root_vel, left_vel, right_vel];
 
     // Create an tree using uncompressed values to compare to decompressed tree
-    let uncompressed_tree = MockTree::new_abacus(root, left, right);
+    let uncompressed_tree = MockTree::new(root, left, right);
 
     // Compression of particle position + saving to disk and loading bytes
     let compressed_particle_data: Vec<u8> = particle_positions

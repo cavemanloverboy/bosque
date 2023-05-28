@@ -1,6 +1,7 @@
-//! This example is similar to abacus_mock, except it uses rkyv and CPF32.
+//! This example is similar to mock_tree, except it uses rkyv and CPF32.
 //!
-//! Particles are put into the order expected by a kDTree
+//! A minimal proof of concept for a zero mem-overhead kdtree. This tree supports
+//! zero-copy deserialization.
 use bosque::{
     abacussummit::{self, uncompressed::CP32},
     MockTree,
@@ -33,7 +34,7 @@ fn main() {
         .collect();
 
     // Create an tree using uncompressed values to compare to decompressed tree
-    let uncompressed_tree = MockTree::new_abacus(
+    let uncompressed_tree = MockTree::new(
         particle_positions[0],
         particle_positions[1],
         particle_positions[2],

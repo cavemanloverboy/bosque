@@ -142,13 +142,29 @@ pub mod uncompressed {
     use bytemuck::{Pod, Zeroable};
     use num_traits::*;
 
-    #[derive(Clone, Copy, rkyv::Archive, rkyv::Serialize)]
+    #[derive(Clone, Copy)]
     #[repr(C)]
     /// A wrapper for the `u32` d which holds the compressed position and velocity.
     /// It provides utilities for using the positional information.
     ///
     /// Compressed Position 32-bit -> `CP32`.
     pub struct CP32(u32);
+
+    impl rkyv::Archive for CP32 {
+        type Archived = Self;
+        type Resolver = ();
+
+        #[inline]
+        unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: *mut Self::Archived) {
+            out.write(*self);
+        }
+    }
+    impl<S: rkyv::Fallible + ?Sized> rkyv::Serialize<S> for CP32 {
+        #[inline]
+        fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
+            Ok(())
+        }
+    }
 
     unsafe impl Pod for CP32 {}
     unsafe impl Zeroable for CP32 {}
@@ -167,18 +183,8 @@ pub mod uncompressed {
             super::decompress_position(&self.0)
         }
     }
-    impl ArchivedCP32 {
-        pub fn decompress(&self) -> f32 {
-            super::decompress_position(&self.0)
-        }
-    }
 
     impl Debug for CP32 {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "{:?}", self.decompress())
-        }
-    }
-    impl Debug for ArchivedCP32 {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(f, "{:?}", self.decompress())
         }

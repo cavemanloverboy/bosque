@@ -1,3 +1,10 @@
+//! A full AbacusSummit kdtree mock run.
+//!
+//! 1) Generate mock position and velocity data (i.e. snapshot to be output)
+//! 2) Compress mock position and velocity data `f32/f32` -> `u32`
+//! 3) Use bosque for inplace kdtree, which rearranges the compressed `u32`s and particle ids.
+//!   3.5) Not done here, but at this stage we can now save/load this data.
+//! 4) Query tree
 use bosque::{
     abacussummit::uncompressed::CP32,
     tree::ffi::{
@@ -6,7 +13,7 @@ use bosque::{
 };
 use std::time::Instant;
 
-const NUM_POINTS: usize = 100_000;
+const NUM_POINTS: usize = 512 * 512 * 512;
 const NUM_QUERIES: usize = 1_000_000;
 fn main() {
     // Allocate arrays for mock AbacusSummit sim data
@@ -85,7 +92,7 @@ fn main() {
     // Query tree many times
     let query_timer = Instant::now();
     unsafe {
-        drop(query_compressed_nearest(
+        std::hint::black_box(query_compressed_nearest(
             flat_data_ptr.as_ptr(),
             NUM_POINTS as u64,
             queries.as_ptr(),

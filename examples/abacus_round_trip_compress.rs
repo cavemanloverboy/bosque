@@ -1,3 +1,6 @@
+//! A compression/decompression round trip of a `f32/f32` pair as in AbacusSummit.
+//!
+//! `f32/f32` -> `u32` -> `f32/f32`
 use bosque::abacussummit;
 
 fn main() {
