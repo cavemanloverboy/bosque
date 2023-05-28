@@ -1,8 +1,8 @@
 #include "bosque.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include <math.h>
+#include <sys/time.h>
 
 //#define NUM_POINTS 512*512*512
 //#define NUM_POINTS 128*128*128
@@ -20,9 +20,16 @@ float generateRandomFloat() {
     return (float)rand() / RAND_MAX;
 }
 
+long long timeInMicros(void) {
+    struct timeval tv;
+
+    gettimeofday(&tv,NULL);
+    return (((long long)tv.tv_sec)*1000*1000)+(tv.tv_usec);
+}
+
 int main() {
     // Allocate arrays for mock AbacusSummit sim data
-    clock_t start_init_data = clock();
+    long long start_init_data = timeInMicros();
     Point* pos = malloc(NUM_POINTS * sizeof(Point));
     Point* vel = malloc(NUM_POINTS * sizeof(Point));
 
@@ -38,20 +45,20 @@ int main() {
         vel[i].y = 6000 * (generateRandomFloat() - 0.5);
         vel[i].z = 6000 * (generateRandomFloat() - 0.5);
     }
-    clock_t end_init_data = clock();
-    double init_data_time = ((double) end_init_data - start_init_data) / CLOCKS_PER_SEC;
+    long long end_init_data = timeInMicros();
+    double init_data_time = ((double) end_init_data - start_init_data) / 1000 / 1000;
     printf("Initialized mock data in %f seconds\n", init_data_time);
 
     // Compress values
-    clock_t start_compress = clock();
+    long long start_compress = timeInMicros();
     CP32* cpos = malloc(3 * NUM_POINTS * sizeof(CP32));
     for (int i = 0; i < NUM_POINTS; i++) {
         cpos[3*i]._0 = compress(pos[i].x, vel[i].x);
         cpos[3*i+1]._0 = compress(pos[i].y, vel[i].y);
         cpos[3*i+2]._0 = compress(pos[i].z, vel[i].z);
     }
-    clock_t end_compress = clock();
-    double compress_time = ((double) end_compress - start_compress) / CLOCKS_PER_SEC;
+    long long end_compress = timeInMicros();
+    double compress_time = ((double) end_compress - start_compress) / 1000 / 1000;
     printf("Compressed mock data in %f seconds\n", compress_time);
 
     // Initialize index array
@@ -61,10 +68,10 @@ int main() {
     }
 
     // Create tree on compressed data
-    clock_t start_construct = clock();
+    long long start_construct = timeInMicros();
     construct_compressed_tree(cpos, NUM_POINTS, idx);
-    clock_t end_construct = clock();
-    double construct_time = ((double) end_construct - start_construct) / CLOCKS_PER_SEC;
+    long long end_construct = timeInMicros();
+    double construct_time = ((double) end_construct - start_construct) / 1000 / 1000;;
     printf("Constructed kdtree inplace in %f seconds\n", construct_time);
 
     // Query near origin
@@ -92,17 +99,17 @@ int main() {
     printf("Initialized queries\n");
 
     // Query tree many times
-    clock_t start_queries = clock();
+    long long start_queries = timeInMicros();
     const QueryNearest* nearest = query_compressed_nearest(cpos, NUM_POINTS, queries, NUM_QUERIES);
-    clock_t end_queries = clock();
-    double query_time = ((double) end_queries - start_queries) / CLOCKS_PER_SEC;
-    printf("Carried out %d queries in %f millis\n", NUM_QUERIES, 1000 * query_time);
+    long long stop_queries = timeInMicros();
+    double query_time = ((double)(stop_queries - start_queries)) / 1000;
+    printf("Carried out %d queries in %f millis\n", NUM_QUERIES, query_time);
 
-    start_queries = clock();
+    long long start_par_queries = timeInMicros();
     const QueryNearest* nearest_par = query_compressed_nearest_parallel(cpos, NUM_POINTS, queries, NUM_QUERIES);
-    end_queries = clock();
-    query_time = ((double) end_queries - start_queries) / CLOCKS_PER_SEC;
-    printf("Carried out %d queries in parallel in %f millis\n", NUM_QUERIES, 1000 * query_time);
+    long long stop_par_queries = timeInMicros();
+    double par_query_time = ((double)(stop_par_queries - start_par_queries)) / 1000;
+    printf("Carried out %d queries in parallel in %f millis\n", NUM_QUERIES, par_query_time);
 
     free(pos);
     free(vel);
