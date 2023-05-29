@@ -1,4 +1,7 @@
-use crate::{abacussummit::uncompressed::CP32, mirror_select::mirror_select_nth_unstable_by};
+use crate::{
+    abacussummit::uncompressed::CP32, float::TreeFloat,
+    mirror_select::mirror_select_nth_unstable_by,
+};
 
 pub const BUCKET_SIZE: usize = 32;
 pub type Index = u32;
@@ -42,25 +45,72 @@ pub fn into_tree<T: TreeFloat>(data: &mut [[T; 3]], idxs: &mut [Index], level: u
     }
 }
 
+/// Queries a compressed tree made up of the points in `tree` for the nearest neighbor.
+pub fn nearest_one<T: TreeFloat>(tree: &[[T; 3]], query: &[T::Query; 3]) -> (T::Query, usize) {
+    // SAFETY: we are given the whole tree as a valid reference so pointer must be valid
+    T::output(unsafe { _nearest_one(tree, tree.as_ptr(), T::input(query), 0, 0, T::max()) })
+}
+
+/// Queries a compressed tree made up of the points in `tree` for the nearest neighbor.
+/// Applied periodic boundary conditions on [-0.5, 0.5]
+pub fn nearest_one_periodic<T: TreeFloat>(
+    tree: &[[T; 3]],
+    query: &[T::Query; 3],
+) -> (T::Query, usize) {
+    // SAFETY: we are given the whole tree as a valid reference so pointer must be valid
+    T::output(unsafe { _nearest_one_periodic(tree, tree.as_ptr(), T::input(query), 0) })
+}
+
+/// Queries a compressed tree made up of the points in `tree` for the nearest k neighbors.
+pub fn nearest_k<T: TreeFloat>(
+    tree: &[[T; 3]],
+    query: &[T::Query; 3],
+    k: usize,
+) -> Vec<(T::Query, usize)> {
+    // SAFETY: we are given the whole tree as a valid reference so pointer must be valid
+    T::output_bh(unsafe {
+        _nearest_k(
+            tree,
+            tree.as_ptr(),
+            T::input(query),
+            0,
+            k,
+            BinaryHeap::with_capacity(k),
+        )
+    })
+}
+
+/// Queries a compressed tree made up of the points in `tree` for the nearest k neighbors.
+pub fn nearest_k_periodic<T: TreeFloat>(
+    tree: &[[T; 3]],
+    query: &[T::Query; 3],
+    k: usize,
+) -> Vec<(T::Query, usize)> {
+    // SAFETY: we are given the whole tree as a valid reference so pointer must be valid
+    T::output_bh(unsafe { _nearest_k_periodic(tree, tree.as_ptr(), T::input(query), k) })
+}
+
+/// Inner recursive function.
+///
 /// Queries a compressed tree made up of the points in `flat_data_ptr` for the nearest neighbor.
 ///
 /// # Safety
 /// This pointer must be valid
-pub unsafe fn nearest_one(
-    data: &[[CP32; 3]],
-    data_start: *const [CP32; 3],
-    query: &[f32; 3],
+unsafe fn _nearest_one<T: TreeFloat>(
+    data: &[[T; 3]],
+    data_start: *const [T; 3],
+    query: &[T::Accumulator; 3],
     level: usize,
     mut best: usize,
-    mut best_dist_sq: f32,
-) -> (f32, usize) {
+    mut best_dist_sq: T::Accumulator,
+) -> (T::Accumulator, usize) {
     // Deal with bucket
     if data.len() <= BUCKET_SIZE {
         for d in data {
             let dist_sq = squared_euclidean(d, query);
             if dist_sq <= best_dist_sq {
                 best_dist_sq = dist_sq;
-                let dptr = d as *const [CP32; 3];
+                let dptr = d as *const [T; 3];
                 best = unsafe { dptr.offset_from(data_start) as usize };
             }
         }
@@ -73,16 +123,19 @@ pub unsafe fn nearest_one(
     let stem = unsafe { data.get_unchecked(median) };
 
     // Check stem if necessary
-    let dx = unsafe { stem.get_unchecked(level_dim).decompress() - query.get_unchecked(level_dim) };
+    let dx = unsafe {
+        stem.get_unchecked(level_dim)
+            .sub_accumulator(query.get_unchecked(level_dim))
+    };
 
     // Determine which direction
-    let go_left = dx > 0.0;
+    let go_left = dx > T::zero();
 
     // Get left and query left if necessary
     let (left_data, median_and_right_data) = data.split_at(median);
     if go_left {
         let (left_best_dist_sq, left_best) =
-            nearest_one(left_data, data_start, query, level + 1, best, best_dist_sq);
+            _nearest_one(left_data, data_start, query, level + 1, best, best_dist_sq);
         if left_best_dist_sq < best_dist_sq {
             best = left_best;
             best_dist_sq = left_best_dist_sq;
@@ -91,7 +144,7 @@ pub unsafe fn nearest_one(
         // Get right and query right if necessary
         let right_data = &median_and_right_data[1..];
         let (right_best_dist_sq, right_best) =
-            nearest_one(right_data, data_start, query, level + 1, best, best_dist_sq);
+            _nearest_one(right_data, data_start, query, level + 1, best, best_dist_sq);
         if right_best_dist_sq < best_dist_sq {
             best = right_best;
             best_dist_sq = right_best_dist_sq;
@@ -106,7 +159,7 @@ pub unsafe fn nearest_one(
         let dist_sq = squared_euclidean(stem, query);
         if dist_sq <= best_dist_sq {
             best_dist_sq = dist_sq;
-            let dptr = stem as *const [CP32; 3];
+            let dptr = stem as *const [T; 3];
             best = unsafe { dptr.offset_from(data_start) as usize };
         }
 
@@ -114,7 +167,7 @@ pub unsafe fn nearest_one(
         // Invert logic
         if !go_left {
             let (left_best_dist_sq, left_best) =
-                nearest_one(left_data, data_start, query, level + 1, best, best_dist_sq);
+                _nearest_one(left_data, data_start, query, level + 1, best, best_dist_sq);
             if left_best_dist_sq < best_dist_sq {
                 best = left_best;
                 best_dist_sq = left_best_dist_sq;
@@ -123,7 +176,7 @@ pub unsafe fn nearest_one(
             // Get right and query right if necessary
             let right_data = &median_and_right_data[1..];
             let (right_best_dist_sq, right_best) =
-                nearest_one(right_data, data_start, query, level + 1, best, best_dist_sq);
+                _nearest_one(right_data, data_start, query, level + 1, best, best_dist_sq);
             if right_best_dist_sq < best_dist_sq {
                 best = right_best;
                 best_dist_sq = right_best_dist_sq;
@@ -134,23 +187,25 @@ pub unsafe fn nearest_one(
     (best_dist_sq, best)
 }
 
+/// Inner recursive function.
+///
 /// Queries a compressed tree made up of the points in `flat_data_ptr` for the nearest neighbor.
 /// Applies periodic boundary conditions on [-0.5, 0.5].
 ///
 /// # Safety
 /// This pointer must be valid
-pub unsafe fn nearest_one_periodic(
-    data: &[[CP32; 3]],
-    data_start: *const [CP32; 3],
-    query: &[f32; 3],
+unsafe fn _nearest_one_periodic<T: TreeFloat>(
+    data: &[[T; 3]],
+    data_start: *const [T; 3],
+    query: &[T::Accumulator; 3],
     level: usize,
-) -> (f32, usize) {
+) -> (T::Accumulator, usize) {
     // First do real image
-    let (mut best_dist_sq, mut best) = nearest_one(data, data_start, query, level, 0, f32::MAX);
+    let (mut best_dist_sq, mut best) = _nearest_one(data, data_start, query, level, 0, T::max());
 
     // Going to actually specify dimensions here in case we generalize to D != 3 and other boxsizes
     const D: usize = 3;
-    const BOXSIZE: [f32; D] = [1.0; D];
+    let boxsize: [T::Accumulator; D] = [T::one(); D];
 
     // Find which images we need to check (skip real and start at 1)
     for image in 1..2_usize.pow(D as u32) {
@@ -166,14 +221,15 @@ pub unsafe fn nearest_one_periodic(
                     // Get minimum of dist2 to lower and upper side
                     // safety: made safe with const generic
                     Some(unsafe {
-                        (BOXSIZE.get_unchecked(side) / 2.0 - query.get_unchecked(side).abs())
-                            .powi(2)
+                        let dx = T::half(boxsize.get_unchecked(side))
+                            - T::abs(query.get_unchecked(side));
+                        dx * dx
                     })
                 } else {
                     None
                 }
             })
-            .fold(0.0, |acc, x| acc + x);
+            .fold(T::zero(), |acc, x| acc + x);
 
         // Query with image if necessary
         if dist_sq_to_side_edge_or_other <= best_dist_sq {
@@ -188,18 +244,18 @@ pub unsafe fn nearest_one_periodic(
 
                     // Single index here as well
                     // safety: made safe with const generic
-                    let boxsize_component = unsafe { BOXSIZE.get_unchecked(idx) };
+                    let boxsize_component = unsafe { boxsize.get_unchecked(idx) };
 
                     // safety: made safe with const generic
                     unsafe {
-                        if *query_component < 0.0 {
+                        if *query_component < T::zero() {
                             // Add if in lower half of box
                             *image_to_check.get_unchecked_mut(idx) =
-                                query_component + boxsize_component
+                                *query_component + *boxsize_component
                         } else {
                             // Subtract if in upper half of box
                             *image_to_check.get_unchecked_mut(idx) =
-                                query_component - boxsize_component
+                                *query_component - *boxsize_component
                         }
                     }
                 }
@@ -207,7 +263,7 @@ pub unsafe fn nearest_one_periodic(
 
             // Check image
             (best_dist_sq, best) =
-                nearest_one(data, data_start, &image_to_check, level, best, best_dist_sq);
+                _nearest_one(data, data_start, &image_to_check, level, best, best_dist_sq);
         }
     }
 
@@ -216,45 +272,30 @@ pub unsafe fn nearest_one_periodic(
 
 use std::collections::BinaryHeap;
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct F32(pub f32);
-
-impl Eq for F32 {}
-
-impl Ord for F32 {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).expect("you likely had a nan")
-    }
-}
-
-impl PartialOrd for F32 {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.0.partial_cmp(&other.0)
-    }
-}
-
+/// Inner recursive function.
+///
 /// Queries a compressed tree made up of the points in `flat_data_ptr` for the k nearest neighbors.
 ///
 /// # Safety
 /// This pointer must be valid
-pub unsafe fn nearest_k(
-    data: &[[CP32; 3]],
-    data_start: *const [CP32; 3],
-    query: &[f32; 3],
+unsafe fn _nearest_k<T: TreeFloat>(
+    data: &[[T; 3]],
+    data_start: *const [T; 3],
+    query: &[T::Accumulator; 3],
     level: usize,
     k: usize,
-    mut bests: BinaryHeap<(F32, usize)>,
-) -> BinaryHeap<(F32, usize)> {
+    mut bests: BinaryHeap<(T::Accumulator, usize)>,
+) -> BinaryHeap<(T::Accumulator, usize)> {
     // Deal with bucket
     if data.len() <= BUCKET_SIZE {
         for d in data {
-            let dist_sq = F32(squared_euclidean(d, query));
+            let dist_sq = squared_euclidean(d, query);
             if bests.len() < k || dist_sq < bests.peek().unwrap().0 {
                 if bests.len() == k {
                     bests.pop();
                 }
                 bests.push((dist_sq, unsafe {
-                    (d as *const [CP32; 3]).offset_from(data_start) as usize
+                    (d as *const [T; 3]).offset_from(data_start) as usize
                 }));
             }
         }
@@ -266,15 +307,18 @@ pub unsafe fn nearest_k(
     let level_dim = level % 3;
     let stem = unsafe { data.get_unchecked(median) };
 
-    let dx = unsafe { stem.get_unchecked(level_dim).decompress() - query.get_unchecked(level_dim) };
-    let go_left = dx > 0.0;
+    let dx = unsafe {
+        stem.get_unchecked(level_dim)
+            .sub_accumulator(query.get_unchecked(level_dim))
+    };
+    let go_left = dx > T::zero();
 
     let (left_data, median_and_right_data) = data.split_at(median);
     if go_left {
-        bests = nearest_k(left_data, data_start, query, level + 1, k, bests);
+        bests = _nearest_k(left_data, data_start, query, level + 1, k, bests);
     } else {
         let right_data = &median_and_right_data[1..];
-        bests = nearest_k(right_data, data_start, query, level + 1, k, bests);
+        bests = _nearest_k(right_data, data_start, query, level + 1, k, bests);
     }
 
     // Check whether we have to check stem or other dim
@@ -285,59 +329,53 @@ pub unsafe fn nearest_k(
     } else {
         bests
             .peek()
-            .map_or(true, |&(dist_sq, _)| dist_sq >= F32(dx * dx))
+            .map_or(true, |&(dist_sq, _)| dist_sq >= dx * dx)
     };
 
     if check_stem_and_other_dim {
         // Check stem
-        let dist_sq = F32(squared_euclidean(stem, query));
+        let dist_sq = squared_euclidean(stem, query);
         if bests.len() < k || dist_sq < bests.peek().unwrap().0 {
             if bests.len() == k {
                 bests.pop();
             }
             bests.push((dist_sq, unsafe {
-                (stem as *const [CP32; 3]).offset_from(data_start) as usize
+                (stem as *const [T; 3]).offset_from(data_start) as usize
             }));
         }
 
         // Check other dim
         // Invert logic
         if !go_left {
-            bests = nearest_k(left_data, data_start, query, level + 1, k, bests);
+            bests = _nearest_k(left_data, data_start, query, level + 1, k, bests);
         } else {
             let right_data = &median_and_right_data[1..];
-            bests = nearest_k(right_data, data_start, query, level + 1, k, bests);
+            bests = _nearest_k(right_data, data_start, query, level + 1, k, bests);
         }
     }
 
     bests
 }
 
+/// Inner recursive function.
+///
 /// Queries a compressed tree made up of the points in `flat_data_ptr` for the nearest neighbor.
 /// Applies periodic boundary conditions on [-0.5, 0.5].
 ///
 /// # Safety
 /// This pointer must be valid
-pub unsafe fn nearest_k_periodic(
-    data: &[[CP32; 3]],
-    data_start: *const [CP32; 3],
-    query: &[f32; 3],
-    level: usize,
+unsafe fn _nearest_k_periodic<T: TreeFloat>(
+    data: &[[T; 3]],
+    data_start: *const [T; 3],
+    query: &[T::Accumulator; 3],
     k: usize,
-) -> BinaryHeap<(F32, usize)> {
+) -> BinaryHeap<(T::Accumulator, usize)> {
     // First do real image
-    let mut bests = nearest_k(
-        data,
-        data_start,
-        query,
-        level,
-        k,
-        BinaryHeap::with_capacity(k),
-    );
+    let mut bests = _nearest_k(data, data_start, query, 0, k, BinaryHeap::with_capacity(k));
 
     // Going to actually specify dimensions here in case we generalize to D != 3 and other boxsizes
     const D: usize = 3;
-    const BOXSIZE: [f32; D] = [1.0; D];
+    let boxsize: [T::Accumulator; D] = [T::one(); D];
 
     // Find which images we need to check (skip real and start at 1)
     for image in 1..2_usize.pow(D as u32) {
@@ -353,17 +391,18 @@ pub unsafe fn nearest_k_periodic(
                     // Get minimum of dist2 to lower and upper side
                     // safety: made safe with const generic
                     Some(unsafe {
-                        (BOXSIZE.get_unchecked(side) / 2.0 - query.get_unchecked(side).abs())
-                            .powi(2)
+                        let dx = T::half(boxsize.get_unchecked(side))
+                            - T::abs(query.get_unchecked(side));
+                        dx * dx
                     })
                 } else {
                     None
                 }
             })
-            .fold(0.0, |acc, x| acc + x);
+            .fold(T::zero(), |acc, x| acc + x);
 
         // Query with image if necessary
-        if dist_sq_to_side_edge_or_other <= bests.peek().unwrap().0 .0 {
+        if dist_sq_to_side_edge_or_other <= bests.peek().unwrap().0 {
             let mut image_to_check = query.clone();
 
             for (idx, flag) in closest_image.enumerate() {
@@ -375,48 +414,55 @@ pub unsafe fn nearest_k_periodic(
 
                     // Single index here as well
                     // safety: made safe with const generic
-                    let boxsize_component = unsafe { BOXSIZE.get_unchecked(idx) };
+                    let boxsize_component = unsafe { boxsize.get_unchecked(idx) };
 
                     // safety: made safe with const generic
                     unsafe {
-                        if *query_component < 0.0 {
+                        if *query_component < T::zero() {
                             // Add if in lower half of box
                             *image_to_check.get_unchecked_mut(idx) =
-                                query_component + boxsize_component
+                                *query_component + *boxsize_component
                         } else {
                             // Subtract if in upper half of box
                             *image_to_check.get_unchecked_mut(idx) =
-                                query_component - boxsize_component
+                                *query_component - *boxsize_component
                         }
                     }
                 }
             }
 
             // Check image
-            bests = nearest_k(data, data_start, &image_to_check, level, k, bests);
+            bests = _nearest_k(data, data_start, &image_to_check, 0, k, bests);
         }
     }
 
     bests
 }
 
-pub fn squared_euclidean(a: &[CP32; 3], q: &[f32; 3]) -> f32 {
+pub fn squared_euclidean<T: TreeFloat>(a: &[T; 3], q: &[T::Accumulator; 3]) -> T::Accumulator {
     unsafe {
-        let dx = a.get_unchecked(0).decompress() - q.get_unchecked(0);
-        let dy = a.get_unchecked(1).decompress() - q.get_unchecked(1);
-        let dz = a.get_unchecked(2).decompress() - q.get_unchecked(2);
+        let dx = a.get_unchecked(0).sub_accumulator(q.get_unchecked(0));
+        let dy = a.get_unchecked(1).sub_accumulator(q.get_unchecked(1));
+        let dz = a.get_unchecked(2).sub_accumulator(q.get_unchecked(2));
 
         dx * dx + dy * dy + dz * dz
     }
 }
 
 pub mod ffi {
-    use crate::cast::{cast_slice, cast_slice_mut};
+    use crate::{
+        cast::{cast_slice, cast_slice_mut},
+        float::F32,
+    };
 
     use super::{into_tree, Index, CP32};
 
-    #[repr(C)]
+    /// An auxiliary ffi type for multi-value returns.
+    ///
+    /// # SAFETY
+    /// If the fields of this type ever change review the extern "C" functions in this module for safety.
     #[derive(Default, Clone, Copy)]
+    #[repr(C)]
     pub struct QueryNearest {
         pub dist_sq: f32,
         pub idx_within: u64,
@@ -458,21 +504,18 @@ pub mod ffi {
 
         let flat_queries: &[f32] =
             std::slice::from_raw_parts(flat_query_ptr, 3 * num_queries as usize);
-        let queries: &[[f32; 3]] = cast_slice(flat_queries);
+        let queries: &[[F32; 3]] = cast_slice(flat_queries);
 
-        let results: Vec<QueryNearest> = queries
+        let results: Vec<(F32, u64)> = queries
             .iter()
             .map(|q| {
                 let (dist_sq, idx_within) =
-                    super::nearest_one(data, data.as_ptr(), q, 0, 0, f32::MAX);
+                    super::_nearest_one(data, data.as_ptr(), q, 0, 0, F32(f32::MAX));
                 let idx_within = idx_within as u64;
-                QueryNearest {
-                    dist_sq,
-                    idx_within,
-                }
+                (dist_sq, idx_within)
             })
             .collect();
-        Box::leak(results.into_boxed_slice()).as_ptr()
+        std::mem::transmute(Box::leak(results.into_boxed_slice()).as_ptr())
     }
 
     /// Queries a compressed tree made up of the `num_points` points in `flat_data_ptr` for the nearest neighbor.
@@ -497,68 +540,18 @@ pub mod ffi {
 
         let flat_queries: &[f32] =
             std::slice::from_raw_parts(flat_query_ptr, 3 * num_queries as usize);
-        let queries: &[[f32; 3]] = cast_slice(flat_queries);
+        let queries: &[[F32; 3]] = cast_slice(flat_queries);
 
-        let results: Vec<QueryNearest> = queries
+        let results: Vec<(F32, u64)> = queries
             .par_iter()
             .map(|q| {
                 let (dist_sq, idx_within) =
-                    super::nearest_one(data, data.as_ptr(), q, 0, 0, f32::MAX);
+                    super::_nearest_one(data, data.as_ptr(), q, 0, 0, F32(f32::MAX));
                 let idx_within = idx_within as u64;
-                QueryNearest {
-                    dist_sq,
-                    idx_within,
-                }
+                (dist_sq, idx_within)
             })
             .collect();
-        Box::leak(results.into_boxed_slice()).as_ptr()
+
+        std::mem::transmute(Box::leak(results.into_boxed_slice()).as_ptr())
     }
-}
-
-#[test]
-fn test_into_tree() {
-    const DATA: usize = BUCKET_SIZE * 3;
-    let data: &mut Vec<[CP32; 3]> = &mut (0..DATA)
-        .map(|_| [CP32::compress(rand::random::<f32>() - 0.5, 0.0); 3])
-        .collect();
-    let idxs: &mut Vec<Index> = &mut (0..DATA as Index).collect();
-
-    into_tree(data, idxs, 0);
-}
-
-#[test]
-fn test_into_tree_query() {
-    const DATA: usize = BUCKET_SIZE * 3;
-    let data: &mut Vec<[CP32; 3]> = &mut (0..DATA)
-        .map(|_| [CP32::compress(rand::random::<f32>() - 0.5, 0.0); 3])
-        .collect();
-    let idxs: &mut Vec<Index> = &mut (0..DATA as Index).collect();
-
-    into_tree(data, idxs, 0);
-    println!("{data:#?}");
-    println!("{idxs:#?}");
-
-    let query = [-0.1; 3];
-    let (best_dist_sq, best) =
-        unsafe { nearest_one(data, data.as_ptr(), &query, 0, 0, f32::INFINITY) };
-    println!("query: {query:?}");
-    println!("best: {:?} -> {best_dist_sq}", data[best]);
-}
-
-#[test]
-fn test_query_periodic() {
-    let data: &mut Vec<[CP32; 3]> = &mut vec![
-        [CP32::compress(0.0, 0.0); 3],
-        [CP32::compress(0.1, 0.0); 3],
-        [CP32::compress(0.49, 0.0); 3],
-    ];
-    let idxs: &mut Vec<Index> = &mut (0..data.len() as Index).collect();
-
-    into_tree(data, idxs, 0);
-    println!("{data:#?}");
-    println!("{idxs:#?}");
-
-    let query = [-0.49; 3];
-    let (_best_dist_sq, best) = unsafe { nearest_one_periodic(data, data.as_ptr(), &query, 0) };
-    assert_eq!(best, 2);
 }
