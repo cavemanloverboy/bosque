@@ -2,7 +2,7 @@ use std::error::Error;
 
 use bosque::{
     abacussummit::uncompressed::CP32,
-    tree::{into_tree, nearest_one, nearest_one_periodic, squared_euclidean, Index},
+    tree::{into_tree, nearest_one, nearest_one_periodic, Index},
 };
 use rand::{rngs::ThreadRng, Rng};
 use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
@@ -31,10 +31,7 @@ fn test_brute_force() -> Result<(), Box<dyn Error>> {
     into_tree(&mut data, &mut idxs, 0);
 
     // Query tree
-    let results: Vec<_> = query
-        .par_iter()
-        .map(|q| unsafe { nearest_one(&data, data.as_ptr(), q, 0, 0, f32::MAX) })
-        .collect();
+    let results: Vec<_> = query.par_iter().map(|q| nearest_one(&data, q)).collect();
 
     // Brute force check results
     query
@@ -46,7 +43,7 @@ fn test_brute_force() -> Result<(), Box<dyn Error>> {
     let results: Vec<_> = query
         .par_iter()
         .take(NQUERY / 10)
-        .map(|q| unsafe { nearest_one_periodic(&data, data.as_ptr(), q, 0) })
+        .map(|q| nearest_one_periodic(&data, q))
         .collect();
 
     // Brute force check periodic results
@@ -100,4 +97,12 @@ fn brute_force_periodic(q: &[f32; 3], data: &[[CP32; 3]]) -> (f32, usize) {
     }
 
     (best_dist_sq, best)
+}
+
+fn squared_euclidean(d: &[CP32; 3], q: &[f32; 3]) -> f32 {
+    let dx = d[0].decompress() - q[0];
+    let dy = d[1].decompress() - q[1];
+    let dz = d[2].decompress() - q[2];
+
+    dx * dx + dy * dy + dz * dz
 }

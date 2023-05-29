@@ -1,8 +1,8 @@
-use std::{collections::BinaryHeap, error::Error};
+use std::error::Error;
 
 use bosque::{
     abacussummit::uncompressed::CP32,
-    tree::{into_tree, nearest_k, nearest_k_periodic, squared_euclidean, Index, F32},
+    tree::{into_tree, nearest_k, nearest_k_periodic, Index},
 };
 use rand::{rngs::ThreadRng, Rng};
 use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
@@ -34,15 +34,7 @@ fn test_brute_force_k() -> Result<(), Box<dyn Error>> {
     // Query tree
     let results: Vec<[(f32, usize); K]> = query
         .par_iter()
-        .map(|q| unsafe {
-            let bh = BinaryHeap::with_capacity(K);
-            core::mem::transmute::<[(F32, usize); K], [(f32, usize); K]>(
-                nearest_k(&data, data.as_ptr(), q, 0, K, bh)
-                    .into_sorted_vec()
-                    .try_into()
-                    .unwrap(),
-            )
-        })
+        .map(|q| nearest_k(&data, q, K).try_into().unwrap())
         .collect();
 
     // Brute force check results
@@ -55,14 +47,7 @@ fn test_brute_force_k() -> Result<(), Box<dyn Error>> {
     let results: Vec<[(f32, usize); K]> = query
         .par_iter()
         .take(NQUERY / 100)
-        .map(|q| unsafe {
-            core::mem::transmute::<[(F32, usize); K], [(f32, usize); K]>(
-                nearest_k_periodic(&data, data.as_ptr(), q, 0, K)
-                    .into_sorted_vec()
-                    .try_into()
-                    .unwrap(),
-            )
-        })
+        .map(|q| nearest_k_periodic(&data, q, K).try_into().unwrap())
         .collect();
 
     // Brute force check results
@@ -116,4 +101,12 @@ fn brute_force_periodic(q: &[f32; 3], data: &[[CP32; 3]]) -> [(f32, usize); K] {
     }
 
     best
+}
+
+fn squared_euclidean(d: &[CP32; 3], q: &[f32; 3]) -> f32 {
+    let dx = d[0].decompress() - q[0];
+    let dy = d[1].decompress() - q[1];
+    let dz = d[2].decompress() - q[2];
+
+    dx * dx + dy * dy + dz * dz
 }
