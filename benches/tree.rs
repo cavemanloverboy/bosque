@@ -1,7 +1,6 @@
 use bosque::{
     abacussummit::uncompressed::CP32,
     tree::{self, Index},
-    treef32,
 };
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -31,14 +30,14 @@ fn criterion_benchmark(c: &mut Criterion) {
     g.bench_function("build_f32", |b| {
         b.iter_batched_ref(
             || (data_f32.clone(), idxs_f32.clone()),
-            |(ref mut d, ref mut i)| treef32::into_tree(black_box(d), black_box(i), 0),
+            |(ref mut d, ref mut i)| tree::into_tree(black_box(d), black_box(i), 0),
             BatchSize::LargeInput,
         )
     });
     build_group.finish();
 
     tree::into_tree(&mut data, &mut idxs, 0);
-    treef32::into_tree(&mut data_f32, &mut idxs_f32, 0);
+    tree::into_tree(&mut data_f32, &mut idxs_f32, 0);
 
     let query = [-0.1; 3];
     let mut query_nearest_group = c.benchmark_group("query_nearest");
@@ -46,14 +45,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     g.bench_function("query_const", |b| {
         b.iter(|| unsafe {
             for _ in 0..QUERIES {
-                black_box(tree::nearest_one(
-                    black_box(&data),
-                    data.as_ptr(),
-                    black_box(&query),
-                    0,
-                    0,
-                    f32::INFINITY,
-                ));
+                black_box(tree::nearest_one(black_box(&data), black_box(&query)));
             }
         });
     });
@@ -61,14 +53,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     g.bench_function("query_constf32", |b| {
         b.iter(|| unsafe {
             for _ in 0..QUERIES {
-                black_box(treef32::nearest_one(
-                    black_box(&data_f32),
-                    data_f32.as_ptr(),
-                    black_box(&query),
-                    0,
-                    0,
-                    f32::INFINITY,
-                ));
+                black_box(tree::nearest_one(black_box(&data_f32), black_box(&query)));
             }
         });
     });
@@ -79,28 +64,14 @@ fn criterion_benchmark(c: &mut Criterion) {
     g.bench_function("query", |b| {
         b.iter(|| unsafe {
             for q in &queries {
-                black_box(tree::nearest_one(
-                    black_box(&data),
-                    data.as_ptr(),
-                    black_box(q),
-                    0,
-                    0,
-                    f32::INFINITY,
-                ));
+                black_box(tree::nearest_one(black_box(&data), black_box(q)));
             }
         });
     });
     g.bench_function("query_par", |b| {
         b.iter(|| unsafe {
             queries.par_iter().for_each(|q| {
-                black_box(tree::nearest_one(
-                    black_box(&data),
-                    data.as_ptr(),
-                    black_box(q),
-                    0,
-                    0,
-                    f32::INFINITY,
-                ));
+                black_box(tree::nearest_one(black_box(&data), black_box(q)));
             })
         });
     });
@@ -108,28 +79,14 @@ fn criterion_benchmark(c: &mut Criterion) {
     g.bench_function("queryf32", |b| {
         b.iter(|| unsafe {
             for q in &queries {
-                black_box(treef32::nearest_one(
-                    black_box(&data_f32),
-                    data_f32.as_ptr(),
-                    black_box(q),
-                    0,
-                    0,
-                    f32::INFINITY,
-                ));
+                black_box(tree::nearest_one(black_box(&data_f32), black_box(q)));
             }
         });
     });
     g.bench_function("queryf32_par", |b| {
         b.iter(|| unsafe {
             queries.par_iter().for_each(|q| {
-                black_box(treef32::nearest_one(
-                    black_box(&data_f32),
-                    data_f32.as_ptr(),
-                    black_box(q),
-                    0,
-                    0,
-                    f32::INFINITY,
-                ));
+                black_box(tree::nearest_one(black_box(&data_f32), black_box(q)));
             })
         });
     });
@@ -137,24 +94,14 @@ fn criterion_benchmark(c: &mut Criterion) {
     g.bench_function("query_periodic", |b| {
         b.iter(|| unsafe {
             for q in &queries {
-                black_box(tree::nearest_one_periodic(
-                    black_box(&data),
-                    data.as_ptr(),
-                    black_box(q),
-                    0,
-                ));
+                black_box(tree::nearest_one_periodic(black_box(&data), black_box(q)));
             }
         });
     });
     g.bench_function("query_par_periodic", |b| {
         b.iter(|| unsafe {
             queries.par_iter().for_each(|q| {
-                black_box(tree::nearest_one_periodic(
-                    black_box(&data),
-                    data.as_ptr(),
-                    black_box(q),
-                    0,
-                ));
+                black_box(tree::nearest_one_periodic(black_box(&data), black_box(q)));
             })
         });
     });
@@ -162,11 +109,9 @@ fn criterion_benchmark(c: &mut Criterion) {
     g.bench_function("queryf32_periodic", |b| {
         b.iter(|| unsafe {
             for q in &queries {
-                black_box(treef32::nearest_one_periodic(
+                black_box(tree::nearest_one_periodic(
                     black_box(&data_f32),
-                    data_f32.as_ptr(),
                     black_box(q),
-                    0,
                 ));
             }
         });
@@ -175,11 +120,9 @@ fn criterion_benchmark(c: &mut Criterion) {
     g.bench_function("queryf32_par_periodic", |b| {
         b.iter(|| unsafe {
             queries.par_iter().for_each(|q| {
-                black_box(treef32::nearest_one_periodic(
+                black_box(tree::nearest_one_periodic(
                     black_box(&data_f32),
-                    data_f32.as_ptr(),
                     black_box(q),
-                    0,
                 ));
             })
         });
@@ -192,14 +135,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     g.bench_function("query_k", |b| {
         b.iter(|| unsafe {
             for q in &queries {
-                black_box(tree::nearest_k(
-                    black_box(&data),
-                    data.as_ptr(),
-                    black_box(q),
-                    0,
-                    128,
-                    std::collections::BinaryHeap::with_capacity(128),
-                ));
+                black_box(tree::nearest_k(black_box(&data), black_box(q), 128));
             }
         });
     });
@@ -207,14 +143,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     g.bench_function("query_k_par", |b| {
         b.iter(|| unsafe {
             queries.par_iter().for_each(|q| {
-                black_box(tree::nearest_k(
-                    black_box(&data),
-                    data.as_ptr(),
-                    black_box(q),
-                    0,
-                    128,
-                    std::collections::BinaryHeap::with_capacity(128),
-                ));
+                black_box(tree::nearest_k(black_box(&data), black_box(q), 128));
             })
         });
     });
@@ -222,14 +151,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     g.bench_function("query_k_f32", |b| {
         b.iter(|| unsafe {
             for q in &queries {
-                black_box(treef32::nearest_k(
-                    black_box(&data_f32),
-                    data_f32.as_ptr(),
-                    black_box(q),
-                    0,
-                    128,
-                    std::collections::BinaryHeap::with_capacity(128),
-                ));
+                black_box(tree::nearest_k(black_box(&data_f32), black_box(q), 128));
             }
         });
     });
@@ -237,14 +159,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     g.bench_function("query_k_f32_par", |b| {
         b.iter(|| unsafe {
             queries.par_iter().for_each(|q| {
-                black_box(treef32::nearest_k(
-                    black_box(&data_f32),
-                    data_f32.as_ptr(),
-                    black_box(q),
-                    0,
-                    128,
-                    std::collections::BinaryHeap::with_capacity(128),
-                ));
+                black_box(tree::nearest_k(black_box(&data_f32), black_box(q), 128));
             })
         });
     });
