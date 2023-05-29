@@ -43,7 +43,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut query_nearest_group = c.benchmark_group("query_nearest");
     let g = query_nearest_group.sample_size(100);
     g.bench_function("query_const", |b| {
-        b.iter(|| unsafe {
+        b.iter(|| {
             for _ in 0..QUERIES {
                 black_box(tree::nearest_one(black_box(&data), black_box(&query)));
             }
@@ -51,7 +51,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
     g.bench_function("query_constf32", |b| {
-        b.iter(|| unsafe {
+        b.iter(|| {
             for _ in 0..QUERIES {
                 black_box(tree::nearest_one(black_box(&data_f32), black_box(&query)));
             }
@@ -62,14 +62,14 @@ fn criterion_benchmark(c: &mut Criterion) {
         .map(|_| [rand::random::<f32>() - 0.5; 3])
         .collect();
     g.bench_function("query", |b| {
-        b.iter(|| unsafe {
+        b.iter(|| {
             for q in &queries {
                 black_box(tree::nearest_one(black_box(&data), black_box(q)));
             }
         });
     });
     g.bench_function("query_par", |b| {
-        b.iter(|| unsafe {
+        b.iter(|| {
             queries.par_iter().for_each(|q| {
                 black_box(tree::nearest_one(black_box(&data), black_box(q)));
             })
@@ -77,14 +77,14 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
     g.bench_function("queryf32", |b| {
-        b.iter(|| unsafe {
+        b.iter(|| {
             for q in &queries {
                 black_box(tree::nearest_one(black_box(&data_f32), black_box(q)));
             }
         });
     });
     g.bench_function("queryf32_par", |b| {
-        b.iter(|| unsafe {
+        b.iter(|| {
             queries.par_iter().for_each(|q| {
                 black_box(tree::nearest_one(black_box(&data_f32), black_box(q)));
             })
@@ -92,14 +92,14 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
     g.bench_function("query_periodic", |b| {
-        b.iter(|| unsafe {
+        b.iter(|| {
             for q in &queries {
                 black_box(tree::nearest_one_periodic(black_box(&data), black_box(q)));
             }
         });
     });
     g.bench_function("query_par_periodic", |b| {
-        b.iter(|| unsafe {
+        b.iter(|| {
             queries.par_iter().for_each(|q| {
                 black_box(tree::nearest_one_periodic(black_box(&data), black_box(q)));
             })
@@ -107,7 +107,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
     g.bench_function("queryf32_periodic", |b| {
-        b.iter(|| unsafe {
+        b.iter(|| {
             for q in &queries {
                 black_box(tree::nearest_one_periodic(
                     black_box(&data_f32),
@@ -118,7 +118,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
     g.bench_function("queryf32_par_periodic", |b| {
-        b.iter(|| unsafe {
+        b.iter(|| {
             queries.par_iter().for_each(|q| {
                 black_box(tree::nearest_one_periodic(
                     black_box(&data_f32),
@@ -133,7 +133,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let g = query_k_group.sample_size(10);
 
     g.bench_function("query_k", |b| {
-        b.iter(|| unsafe {
+        b.iter(|| {
             for q in &queries {
                 black_box(tree::nearest_k(black_box(&data), black_box(q), 128));
             }
@@ -141,7 +141,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
     g.bench_function("query_k_par", |b| {
-        b.iter(|| unsafe {
+        b.iter(|| {
             queries.par_iter().for_each(|q| {
                 black_box(tree::nearest_k(black_box(&data), black_box(q), 128));
             })
@@ -149,7 +149,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
     g.bench_function("query_k_f32", |b| {
-        b.iter(|| unsafe {
+        b.iter(|| {
             for q in &queries {
                 black_box(tree::nearest_k(black_box(&data_f32), black_box(q), 128));
             }
@@ -157,7 +157,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
     g.bench_function("query_k_f32_par", |b| {
-        b.iter(|| unsafe {
+        b.iter(|| {
             queries.par_iter().for_each(|q| {
                 black_box(tree::nearest_k(black_box(&data_f32), black_box(q), 128));
             })
