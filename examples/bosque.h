@@ -27,6 +27,12 @@ typedef struct CP32 {
 
 typedef uint32_t Index;
 
+/**
+ * An auxiliary ffi type for multi-value returns.
+ *
+ * # SAFETY
+ * If the fields of this type ever change review the extern "C" functions in this module for safety.
+ */
 typedef struct QueryNearest {
   float dist_sq;
   uint64_t idx_within;

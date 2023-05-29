@@ -24,6 +24,10 @@ struct CP32 {
 
 using Index = uint32_t;
 
+/// An auxiliary ffi type for multi-value returns.
+///
+/// # SAFETY
+/// If the fields of this type ever change review the extern "C" functions in this module for safety.
 struct QueryNearest {
   float dist_sq;
   uint64_t idx_within;
