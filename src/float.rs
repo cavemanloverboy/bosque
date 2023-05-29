@@ -11,7 +11,7 @@ use crate::abacussummit::uncompressed::CP32;
 /// For these compressed formats, the accumulator type is a std float.
 ///
 /// The std floats are their own accumulator type.
-pub trait TreeFloat {
+pub trait TreeFloat: PartialOrd + Send {
     type Accumulator: Mul<Output = Self::Accumulator>
         + Add<Output = Self::Accumulator>
         + Sub<Output = Self::Accumulator>

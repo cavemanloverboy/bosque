@@ -3,7 +3,7 @@ use crate::{abacussummit::uncompressed::CP32, mirror_select::mirror_select_nth_u
 pub const BUCKET_SIZE: usize = 32;
 pub type Index = u32;
 
-pub fn into_tree(data: &mut [[CP32; 3]], idxs: &mut [Index], level: usize) {
+pub fn into_tree<T: TreeFloat>(data: &mut [[T; 3]], idxs: &mut [Index], level: usize) {
     if data.len() <= BUCKET_SIZE {
         return;
     }
