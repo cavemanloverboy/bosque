@@ -10,7 +10,7 @@ use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelI
 const NDATA: usize = 1_000;
 const NQUERY: usize = 10_000;
 
-const K: usize = 32;
+const K: usize = 128;
 #[test]
 fn test_brute_force_k() -> Result<(), Box<dyn Error>> {
     // Random number generator

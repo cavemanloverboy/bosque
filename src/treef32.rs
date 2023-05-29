@@ -23,8 +23,22 @@ pub fn into_tree(data: &mut [[f32; 3]], idxs: &mut [Index], level: usize) {
     let right_idxs = &mut median_and_right_idxs[1..];
 
     // Do left and right, recursively
-    into_tree(left_data, left_idxs, level + 1);
-    into_tree(right_data, right_idxs, level + 1);
+    // on level 0 we get 2^1 = 2 and spawn a thread so 2 total
+    // on level 1 we get 2^2 = 4 and spawn a thread on each of 2 threads so 4 total
+    // on level 2 we get 2^3 = 8 and spawn a thread on each of 4 threads so 8 total
+    // on level 3 we get 2^4 = 16 > 8 -> so sequential.
+    let lte_8_threads = 2_usize.pow(1 + level as u32) > 8;
+    let small_data = left_data.len() < 25_000;
+    let sequential = small_data | lte_8_threads;
+    if sequential {
+        into_tree(left_data, left_idxs, level + 1);
+        into_tree(right_data, right_idxs, level + 1);
+    } else {
+        std::thread::scope(|s| {
+            s.spawn(|| into_tree(left_data, left_idxs, level + 1));
+            into_tree(right_data, right_idxs, level + 1);
+        });
+    }
 }
 
 /// Queries a tree made up of the points in `flat_data_ptr` for the nearest neighbor.

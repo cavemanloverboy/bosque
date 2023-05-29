@@ -7,7 +7,7 @@ use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 fn criterion_benchmark(c: &mut Criterion) {
-    const DATA: usize = 100_000;
+    const DATA: usize = 512 * 512 * 512;
     const QUERIES: usize = 1_000_000;
 
     let mut data: Vec<[CP32; 3]> = (0..DATA)
@@ -19,20 +19,23 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut idxs: Vec<Index> = (0..DATA as Index).collect();
     let mut idxs_f32: Vec<Index> = (0..DATA as Index).collect();
 
-    c.bench_function("build", |b| {
+    let mut build_group = c.benchmark_group("build");
+    let g = build_group.sample_size(10);
+    g.bench_function("build", |b| {
         b.iter_batched_ref(
             || (data.clone(), idxs.clone()),
             |(ref mut d, ref mut i)| tree::into_tree(black_box(d), black_box(i), 0),
             BatchSize::LargeInput,
         )
     });
-    c.bench_function("build_f32", |b| {
+    g.bench_function("build_f32", |b| {
         b.iter_batched_ref(
             || (data_f32.clone(), idxs_f32.clone()),
             |(ref mut d, ref mut i)| treef32::into_tree(black_box(d), black_box(i), 0),
             BatchSize::LargeInput,
         )
     });
+    build_group.finish();
 
     tree::into_tree(&mut data, &mut idxs, 0);
     treef32::into_tree(&mut data_f32, &mut idxs_f32, 0);
