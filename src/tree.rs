@@ -7,41 +7,49 @@ pub const BUCKET_SIZE: usize = 32;
 pub type Index = u32;
 
 pub fn into_tree<T: TreeFloat>(data: &mut [[T; 3]], idxs: &mut [Index], level: usize) {
-    if data.len() <= BUCKET_SIZE {
-        return;
-    }
+    let mut trampoline_state = (data, idxs, level);
+    'trampoline_loop: loop {
+        let (data, idxs, level) = trampoline_state;
+        return {
+            if data.len() <= BUCKET_SIZE {
+                return;
+            }
 
-    // Do current level
-    let median = data.len() / 2;
-    let level_dim = level % 3;
-    mirror_select_nth_unstable_by(data, idxs, median, |a, b| unsafe {
-        a.get_unchecked(level_dim)
-            .partial_cmp(b.get_unchecked(level_dim))
-            .unwrap() // this better be a notnan...
-    });
+            // Do current level
+            let median = data.len() / 2;
+            let level_dim = level % 3;
+            mirror_select_nth_unstable_by(data, idxs, median, |a, b| unsafe {
+                a.get_unchecked(level_dim)
+                    .partial_cmp(b.get_unchecked(level_dim))
+                    .unwrap()
+            });
 
-    // Get left and right data and indices, sans median
-    let (left_data, median_and_right_data) = data.split_at_mut(median);
-    let (left_idxs, median_and_right_idxs) = idxs.split_at_mut(median);
-    let right_data = &mut median_and_right_data[1..];
-    let right_idxs = &mut median_and_right_idxs[1..];
+            // Get left and right data and indices, sans median
+            let (left_data, median_and_right_data) = data.split_at_mut(median);
+            let (left_idxs, median_and_right_idxs) = idxs.split_at_mut(median);
+            let right_data = &mut median_and_right_data[1..];
+            let right_idxs = &mut median_and_right_idxs[1..];
 
-    // Do left and right, recursively
-    // on level 0 we get 2^1 = 2 and spawn a thread so 2 total
-    // on level 1 we get 2^2 = 4 and spawn a thread on each of 2 threads so 4 total
-    // on level 2 we get 2^3 = 8 and spawn a thread on each of 4 threads so 8 total
-    // on level 3 we get 2^4 = 16 > 8 -> so sequential.
-    let lte_8_threads = 2_usize.pow(1 + level as u32) > 8;
-    let small_data = left_data.len() < 25_000;
-    let sequential = small_data | lte_8_threads;
-    if sequential {
-        into_tree(left_data, left_idxs, level + 1);
-        into_tree(right_data, right_idxs, level + 1);
-    } else {
-        std::thread::scope(|s| {
-            s.spawn(|| into_tree(left_data, left_idxs, level + 1));
-            into_tree(right_data, right_idxs, level + 1);
-        });
+            // Do left and right, recursively
+            // on level 0 we get 2^1 = 2 and spawn a thread so 2 total
+            // on level 1 we get 2^2 = 4 and spawn a thread on each of 2 threads so 4 total
+            // on level 2 we get 2^3 = 8 and spawn a thread on each of 4 threads so 8 total
+            // on level 3 we get 2^4 = 16 > 8 -> so sequential.
+            let lte_8_threads = 2_usize.pow(1 + level as u32) > 8;
+            let small_data = left_data.len() < 25_000;
+            let sequential = small_data | lte_8_threads;
+            if sequential {
+                // Need to call into_tree twice -- only one is unrolled
+                into_tree(left_data, left_idxs, level + 1);
+                trampoline_state = (right_data, right_idxs, level + 1);
+                continue 'trampoline_loop;
+            } else {
+                std::thread::scope(|s| {
+                    s.spawn(|| into_tree(left_data, left_idxs, level + 1));
+                    into_tree(right_data, right_idxs, level + 1);
+                });
+            }
+        };
     }
 }
 
@@ -96,6 +104,7 @@ pub fn nearest_k_periodic<T: TreeFloat>(
 ///
 /// # Safety
 /// This pointer must be valid
+#[inline(always)]
 unsafe fn _nearest_one<T: TreeFloat>(
     data: &[[T; 3]],
     data_start: *const [T; 3],
@@ -194,6 +203,7 @@ unsafe fn _nearest_one<T: TreeFloat>(
 ///
 /// # Safety
 /// This pointer must be valid
+#[inline(always)]
 unsafe fn _nearest_one_periodic<T: TreeFloat>(
     data: &[[T; 3]],
     data_start: *const [T; 3],
@@ -278,6 +288,7 @@ use std::collections::BinaryHeap;
 ///
 /// # Safety
 /// This pointer must be valid
+#[inline(always)]
 unsafe fn _nearest_k<T: TreeFloat>(
     data: &[[T; 3]],
     data_start: *const [T; 3],
@@ -364,6 +375,7 @@ unsafe fn _nearest_k<T: TreeFloat>(
 ///
 /// # Safety
 /// This pointer must be valid
+#[inline(always)]
 unsafe fn _nearest_k_periodic<T: TreeFloat>(
     data: &[[T; 3]],
     data_start: *const [T; 3],
@@ -439,6 +451,7 @@ unsafe fn _nearest_k_periodic<T: TreeFloat>(
     bests
 }
 
+#[inline(always)]
 pub fn squared_euclidean<T: TreeFloat>(a: &[T; 3], q: &[T::Accumulator; 3]) -> T::Accumulator {
     unsafe {
         let dx = a.get_unchecked(0).sub_accumulator(q.get_unchecked(0));
@@ -447,6 +460,18 @@ pub fn squared_euclidean<T: TreeFloat>(a: &[T; 3], q: &[T::Accumulator; 3]) -> T
 
         dx * dx + dy * dy + dz * dz
     }
+}
+
+pub fn construct_cp32(data: &mut [[CP32; 3]], idxs: &mut [Index]) {
+    into_tree(data, idxs, 0)
+}
+
+pub fn construct_f32(data: &mut [[f32; 3]], idxs: &mut [Index]) {
+    into_tree(data, idxs, 0)
+}
+
+pub fn construct_f64(data: &mut [[f64; 3]], idxs: &mut [Index]) {
+    into_tree(data, idxs, 0)
 }
 
 pub mod ffi {

@@ -44,6 +44,7 @@ pub fn decompress(compressed: u32) -> [f32; 2] {
 
 /// Decompresses only the position from the `u32` dword containing the position/velocity pair.
 /// For AbacusSummit, this corresponds to simulation units for position and km/s for velocity.
+#[inline(always)]
 pub fn decompress_position(compressed: &u32) -> f32 {
     // Extract the position by shifting 12 bits to the right
     let position = (compressed >> 12) as f32;
@@ -93,9 +94,11 @@ pub mod uncompressed {
     }
 
     impl CP32 {
+        #[inline(always)]
         pub fn compress(pos: f32, vel: f32) -> CP32 {
             Self(super::compress(pos, vel))
         }
+        #[inline(always)]
         pub fn decompress(&self) -> f32 {
             super::decompress_position(&self.0)
         }
@@ -108,12 +111,14 @@ pub mod uncompressed {
     }
 
     impl PartialEq for CP32 {
+        #[inline(always)]
         fn eq(&self, other: &Self) -> bool {
             self.decompress().eq(&other.decompress())
         }
     }
 
     impl PartialOrd for CP32 {
+        #[inline(always)]
         fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
             self.decompress().partial_cmp(&other.decompress())
         }
@@ -121,6 +126,7 @@ pub mod uncompressed {
 
     impl Neg for CP32 {
         type Output = Self;
+        #[inline(always)]
         fn neg(self) -> Self::Output {
             let [x, v] = super::decompress(self.0);
             CP32(super::compress(-x, v))
@@ -129,6 +135,7 @@ pub mod uncompressed {
 
     impl Rem for CP32 {
         type Output = Self;
+        #[inline(always)]
         fn rem(self, rhs: Self) -> Self::Output {
             let [xl, _] = super::decompress(self.0);
             let [xr, _] = super::decompress(rhs.0);
@@ -138,6 +145,7 @@ pub mod uncompressed {
     }
     impl Div for CP32 {
         type Output = Self;
+        #[inline(always)]
         fn div(self, rhs: Self) -> Self::Output {
             let [xl, _] = super::decompress(self.0);
             let [xr, _] = super::decompress(rhs.0);
@@ -147,6 +155,7 @@ pub mod uncompressed {
     }
     impl Sub for CP32 {
         type Output = Self;
+        #[inline(always)]
         fn sub(self, rhs: Self) -> Self::Output {
             let [xl, _] = super::decompress(self.0);
             let [xr, _] = super::decompress(rhs.0);
@@ -156,6 +165,7 @@ pub mod uncompressed {
     }
     impl Add for CP32 {
         type Output = Self;
+        #[inline(always)]
         fn add(self, rhs: Self) -> Self::Output {
             let [xl, _] = super::decompress(self.0);
             let [xr, _] = super::decompress(rhs.0);
@@ -165,6 +175,7 @@ pub mod uncompressed {
     }
     impl Mul for CP32 {
         type Output = Self;
+        #[inline(always)]
         fn mul(self, rhs: Self) -> Self::Output {
             let [xl, _] = super::decompress(self.0);
             let [xr, _] = super::decompress(rhs.0);

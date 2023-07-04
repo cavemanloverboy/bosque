@@ -187,12 +187,14 @@ pub struct F32(pub f32);
 impl Eq for F32 {}
 
 impl Ord for F32 {
+    #[inline(always)]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.partial_cmp(other).expect("you likely had a nan")
     }
 }
 
 impl PartialOrd for F32 {
+    #[inline(always)]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.0.partial_cmp(&other.0)
     }
@@ -200,6 +202,7 @@ impl PartialOrd for F32 {
 
 impl Sub for F32 {
     type Output = F32;
+    #[inline(always)]
     fn sub(self, rhs: Self) -> Self::Output {
         F32(self.0 - rhs.0)
     }
@@ -207,6 +210,7 @@ impl Sub for F32 {
 
 impl Mul for F32 {
     type Output = F32;
+    #[inline(always)]
     fn mul(self, rhs: Self) -> Self::Output {
         F32(self.0 * rhs.0)
     }
@@ -214,6 +218,7 @@ impl Mul for F32 {
 
 impl Add for F32 {
     type Output = F32;
+    #[inline(always)]
     fn add(self, rhs: Self) -> Self::Output {
         F32(self.0 + rhs.0)
     }
@@ -221,6 +226,7 @@ impl Add for F32 {
 
 impl Sub<&F32> for F32 {
     type Output = F32;
+    #[inline(always)]
     fn sub(self, rhs: &Self) -> Self::Output {
         F32(self.0 - rhs.0)
     }
@@ -228,6 +234,7 @@ impl Sub<&F32> for F32 {
 
 impl Mul<&F32> for F32 {
     type Output = F32;
+    #[inline(always)]
     fn mul(self, rhs: &Self) -> Self::Output {
         F32(self.0 * rhs.0)
     }
@@ -235,6 +242,7 @@ impl Mul<&F32> for F32 {
 
 impl Add<&F32> for F32 {
     type Output = F32;
+    #[inline(always)]
     fn add(self, rhs: &Self) -> Self::Output {
         F32(self.0 + rhs.0)
     }
@@ -247,12 +255,14 @@ pub struct F64(pub f64);
 impl Eq for F64 {}
 
 impl Ord for F64 {
+    #[inline(always)]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.partial_cmp(other).expect("you likely had a nan")
     }
 }
 
 impl PartialOrd for F64 {
+    #[inline(always)]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.0.partial_cmp(&other.0)
     }
@@ -260,6 +270,7 @@ impl PartialOrd for F64 {
 
 impl Sub for F64 {
     type Output = F64;
+    #[inline(always)]
     fn sub(self, rhs: Self) -> Self::Output {
         F64(self.0 - rhs.0)
     }
@@ -267,6 +278,7 @@ impl Sub for F64 {
 
 impl Mul for F64 {
     type Output = F64;
+    #[inline(always)]
     fn mul(self, rhs: Self) -> Self::Output {
         F64(self.0 * rhs.0)
     }
@@ -274,6 +286,7 @@ impl Mul for F64 {
 
 impl Add for F64 {
     type Output = F64;
+    #[inline(always)]
     fn add(self, rhs: Self) -> Self::Output {
         F64(self.0 + rhs.0)
     }
@@ -281,6 +294,7 @@ impl Add for F64 {
 
 impl Sub<&F64> for F64 {
     type Output = F64;
+    #[inline(always)]
     fn sub(self, rhs: &Self) -> Self::Output {
         F64(self.0 - rhs.0)
     }
@@ -288,6 +302,7 @@ impl Sub<&F64> for F64 {
 
 impl Mul<&F64> for F64 {
     type Output = F64;
+    #[inline(always)]
     fn mul(self, rhs: &Self) -> Self::Output {
         F64(self.0 * rhs.0)
     }
@@ -295,6 +310,7 @@ impl Mul<&F64> for F64 {
 
 impl Add<&F64> for F64 {
     type Output = F64;
+    #[inline(always)]
     fn add(self, rhs: &Self) -> Self::Output {
         F64(self.0 + rhs.0)
     }

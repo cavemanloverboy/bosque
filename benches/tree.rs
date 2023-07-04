@@ -41,7 +41,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let query = [-0.1; 3];
     let mut query_nearest_group = c.benchmark_group("query_nearest");
-    let g = query_nearest_group.sample_size(100);
+    let g = query_nearest_group.sample_size(10);
     g.bench_function("query_const", |b| {
         b.iter(|| {
             for _ in 0..QUERIES {
