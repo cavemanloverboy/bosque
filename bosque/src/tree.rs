@@ -512,6 +512,25 @@ pub mod ffi {
         into_tree(data, idxs, 0);
     }
 
+    /// Builds a compressed tree made up of the `num_points` points in `flat_data_ptr` inplace.
+    ///
+    /// # Safety
+    /// Slices to the data are made from these raw parts. This pointer and length must be
+    /// correct and valid.
+    #[no_mangle]
+    pub unsafe extern "C" fn construct_tree_f32(
+        flat_data_ptr: *mut f32,
+        num_points: u64,
+        idxs_ptr: *mut Index,
+    ) {
+        let flat_data: &mut [f32] =
+            unsafe { std::slice::from_raw_parts_mut(flat_data_ptr, 3 * num_points as usize) };
+        let data: &mut [[f32; 3]] = cast_slice_mut(flat_data);
+        let idxs: &mut [Index] =
+            unsafe { std::slice::from_raw_parts_mut(idxs_ptr, num_points as usize) };
+        into_tree(data, idxs, 0);
+    }
+
     /// Queries a compressed tree made up of the `num_points` points in `flat_data_ptr` for the nearest neighbor.
     ///
     /// # Safety
@@ -526,6 +545,37 @@ pub mod ffi {
     ) -> *const QueryNearest {
         let flat_data: &[CP32] = std::slice::from_raw_parts(flat_data_ptr, 3 * num_points as usize);
         let data: &[[CP32; 3]] = cast_slice(flat_data);
+
+        let flat_queries: &[f32] =
+            std::slice::from_raw_parts(flat_query_ptr, 3 * num_queries as usize);
+        let queries: &[[F32; 3]] = cast_slice(flat_queries);
+
+        let results: Vec<(F32, u64)> = queries
+            .iter()
+            .map(|q| {
+                let (dist_sq, idx_within) =
+                    super::_nearest_one(data, data.as_ptr(), q, 0, 0, F32(f32::MAX));
+                let idx_within = idx_within as u64;
+                (dist_sq, idx_within)
+            })
+            .collect();
+        std::mem::transmute(Box::leak(results.into_boxed_slice()).as_ptr())
+    }
+
+    /// Queries a f32 tree made up of the `num_points` points in `flat_data_ptr` for the nearest neighbor.
+    ///
+    /// # Safety
+    /// Slices to the data and queries are made from these raw parts. These pointers and lengths must be
+    /// correct and valid.
+    #[no_mangle]
+    pub unsafe extern "C" fn query_f32_nearest(
+        flat_data_ptr: *const f32,
+        num_points: u64,
+        flat_query_ptr: *const f32,
+        num_queries: u64,
+    ) -> *const QueryNearest {
+        let flat_data: &[f32] = std::slice::from_raw_parts(flat_data_ptr, 3 * num_points as usize);
+        let data: &[[f32; 3]] = cast_slice(flat_data);
 
         let flat_queries: &[f32] =
             std::slice::from_raw_parts(flat_query_ptr, 3 * num_queries as usize);
@@ -576,6 +626,47 @@ pub mod ffi {
                 (dist_sq, idx_within)
             })
             .collect();
+
+        std::mem::transmute(Box::leak(results.into_boxed_slice()).as_ptr())
+    }
+
+    /// Queries a f32 tree made up of the `num_points` points in `flat_data_ptr` for the nearest neighbor.
+    /// This query is parallelized via rayon
+    ///
+    /// # Safety
+    /// Slices to the data and queries are made from these raw parts. These pointers and lengths must be
+    /// correct and valid.
+    #[cfg(feature = "parallel")]
+    #[no_mangle]
+    pub unsafe extern "C" fn query_f32_nearest_parallel(
+        flat_data_ptr: *const f32,
+        num_points: u64,
+        flat_query_ptr: *const f32,
+        num_queries: u64,
+    ) -> *const QueryNearest {
+        use rayon::iter::ParallelIterator;
+        use rayon::prelude::IntoParallelRefIterator;
+
+        let flat_data: &[f32] = std::slice::from_raw_parts(flat_data_ptr, 3 * num_points as usize);
+        let data: &[[f32; 3]] = cast_slice(flat_data);
+
+        let flat_queries: &[f32] =
+            std::slice::from_raw_parts(flat_query_ptr, 3 * num_queries as usize);
+        let queries: &[[F32; 3]] = cast_slice(flat_queries);
+
+        // TODO remove
+        let timer = std::time::Instant::now();
+        let results: Vec<(F32, u64)> = queries
+            .par_iter()
+            .map(|q| {
+                let (dist_sq, idx_within) =
+                    super::_nearest_one(data, data.as_ptr(), q, 0, 0, F32(f32::MAX));
+                let idx_within = idx_within as u64;
+                (dist_sq, idx_within)
+            })
+            .collect();
+        // TODO remove
+        println!("\ndone in {} ms", timer.elapsed().as_millis());
 
         std::mem::transmute(Box::leak(results.into_boxed_slice()).as_ptr())
     }

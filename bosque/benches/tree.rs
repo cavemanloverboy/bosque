@@ -6,7 +6,8 @@ use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 fn criterion_benchmark(c: &mut Criterion) {
-    const DATA: usize = 512 * 512 * 512;
+    // const DATA: usize = 512 * 512 * 512;
+    const DATA: usize = 100_000;
     const QUERIES: usize = 1_000_000;
 
     let mut data: Vec<[CP32; 3]> = (0..DATA)
