@@ -8,7 +8,7 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 fn criterion_benchmark(c: &mut Criterion) {
     // const DATA: usize = 512 * 512 * 512;
     const DATA: usize = 100_000;
-    const QUERIES: usize = 1_000_000;
+    const QUERIES: usize = 10_000;
 
     let mut data: Vec<[CP32; 3]> = (0..DATA)
         .map(|_| [CP32::compress(rand::random::<f32>() - 0.5, 0.0); 3])
@@ -95,14 +95,24 @@ fn criterion_benchmark(c: &mut Criterion) {
     g.bench_function("query_periodic", |b| {
         b.iter(|| {
             for q in &queries {
-                black_box(tree::nearest_one_periodic(black_box(&data), black_box(q)));
+                black_box(tree::nearest_one_periodic(
+                    black_box(&data),
+                    black_box(q),
+                    -0.5,
+                    0.5,
+                ));
             }
         });
     });
     g.bench_function("query_par_periodic", |b| {
         b.iter(|| {
             queries.par_iter().for_each(|q| {
-                black_box(tree::nearest_one_periodic(black_box(&data), black_box(q)));
+                black_box(tree::nearest_one_periodic(
+                    black_box(&data),
+                    black_box(q),
+                    -0.5,
+                    0.5,
+                ));
             })
         });
     });
@@ -113,6 +123,8 @@ fn criterion_benchmark(c: &mut Criterion) {
                 black_box(tree::nearest_one_periodic(
                     black_box(&data_f32),
                     black_box(q),
+                    -0.5,
+                    0.5,
                 ));
             }
         });
@@ -124,6 +136,8 @@ fn criterion_benchmark(c: &mut Criterion) {
                 black_box(tree::nearest_one_periodic(
                     black_box(&data_f32),
                     black_box(q),
+                    -0.5,
+                    0.5,
                 ));
             })
         });

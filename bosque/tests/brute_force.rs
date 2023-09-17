@@ -40,10 +40,12 @@ fn test_brute_force() -> Result<(), Box<dyn Error>> {
         .for_each(|(i, q)| assert_eq!(results[i], brute_force(q, &data)));
 
     // Query tree periodic
+    let lo = -0.5;
+    let hi = 0.5;
     let results: Vec<_> = query
         .par_iter()
         .take(NQUERY / 10)
-        .map(|q| nearest_one_periodic(&data, q))
+        .map(|q| nearest_one_periodic(&data, q, lo, hi))
         .collect();
 
     // Brute force check periodic results
@@ -76,6 +78,10 @@ fn brute_force(q: &[f32; 3], data: &[[CP32; 3]]) -> (f32, usize) {
         }
     }
 
+    if cfg!(feature = "sqrt-dist") {
+        best_dist_sq = best_dist_sq.sqrt();
+    }
+
     (best_dist_sq, best)
 }
 
@@ -96,6 +102,9 @@ fn brute_force_periodic(q: &[f32; 3], data: &[[CP32; 3]]) -> (f32, usize) {
         }
     }
 
+    if cfg!(feature = "sqrt-dist") {
+        best_dist_sq = best_dist_sq.sqrt();
+    }
     (best_dist_sq, best)
 }
 

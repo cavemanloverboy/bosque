@@ -10,7 +10,8 @@ authors = ["Cavey Cool <caveycool@gmail.com>"]
 crate-type = ["lib", "cdylib", "staticlib"] # Creates dynamic lib
 
 [features]
-default = ["parallel"]
+default = ["parallel", "sqrt-dist"]
+sqrt-dist = []
 parallel = ["rayon"]
 
 [dependencies]
