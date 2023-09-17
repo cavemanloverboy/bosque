@@ -24,6 +24,10 @@ struct CP32 {
 
 using Index = uint32_t;
 
+/// An auxiliary ffi type for multi-value returns.
+///
+/// # SAFETY
+/// If the fields of this type ever change review the extern "C" functions in this module for safety.
 struct QueryNearest {
   float dist_sq;
   uint64_t idx_within;
@@ -46,6 +50,13 @@ DecompressedPair decompress(uint32_t compressed);
 /// correct and valid.
 void construct_compressed_tree(CP32 *flat_data_ptr, uint64_t num_points, Index *idxs_ptr);
 
+/// Builds a compressed tree made up of the `num_points` points in `flat_data_ptr` inplace.
+///
+/// # Safety
+/// Slices to the data are made from these raw parts. This pointer and length must be
+/// correct and valid.
+void construct_tree_f32(float *flat_data_ptr, uint64_t num_points, Index *idxs_ptr);
+
 /// Queries a compressed tree made up of the `num_points` points in `flat_data_ptr` for the nearest neighbor.
 ///
 /// # Safety
@@ -55,6 +66,16 @@ const QueryNearest *query_compressed_nearest(const CP32 *flat_data_ptr,
                                              uint64_t num_points,
                                              const float *flat_query_ptr,
                                              uint64_t num_queries);
+
+/// Queries a f32 tree made up of the `num_points` points in `flat_data_ptr` for the nearest neighbor.
+///
+/// # Safety
+/// Slices to the data and queries are made from these raw parts. These pointers and lengths must be
+/// correct and valid.
+const QueryNearest *query_f32_nearest(const float *flat_data_ptr,
+                                      uint64_t num_points,
+                                      const float *flat_query_ptr,
+                                      uint64_t num_queries);
 
 /// Queries a compressed tree made up of the `num_points` points in `flat_data_ptr` for the nearest neighbor.
 /// This query is parallelized via rayon
@@ -66,5 +87,16 @@ const QueryNearest *query_compressed_nearest_parallel(const CP32 *flat_data_ptr,
                                                       uint64_t num_points,
                                                       const float *flat_query_ptr,
                                                       uint64_t num_queries);
+
+/// Queries a f32 tree made up of the `num_points` points in `flat_data_ptr` for the nearest neighbor.
+/// This query is parallelized via rayon
+///
+/// # Safety
+/// Slices to the data and queries are made from these raw parts. These pointers and lengths must be
+/// correct and valid.
+const QueryNearest *query_f32_nearest_parallel(const float *flat_data_ptr,
+                                               uint64_t num_points,
+                                               const float *flat_query_ptr,
+                                               uint64_t num_queries);
 
 } // extern "C"
