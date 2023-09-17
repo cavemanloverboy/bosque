@@ -4,7 +4,10 @@ members = [
     "py",
 ]
 
+[workspace.dependencies]
+bosque = { path = "bosque" }
+
 [profile.release]
 codegen-units = 1
 lto = "fat"
-
+opt-level = 3
