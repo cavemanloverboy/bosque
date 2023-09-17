@@ -15,11 +15,17 @@ pub trait TreeFloat: PartialOrd + Send {
     type Accumulator: Mul<Output = Self::Accumulator>
         + Add<Output = Self::Accumulator>
         + Sub<Output = Self::Accumulator>
+        + Sub<Output = Self::Accumulator>
         + PartialOrd
         + Ord
-        + Copy;
+        + Copy
+        + Sqrt;
 
     type Query: Mul + Add + Sub + PartialOrd;
+
+    const NAME: &'static str;
+
+    fn new_accumulator_from_query(query: Self::Query) -> Self::Accumulator;
 
     /// Subtracts self with an accumulator value
     fn sub_accumulator(&self, rhs: &Self::Accumulator) -> Self::Accumulator;
@@ -40,16 +46,75 @@ pub trait TreeFloat: PartialOrd + Send {
     fn output(acc: (Self::Accumulator, usize)) -> (Self::Query, usize);
 
     /// Converts the inner accumulator into the original input type (at end of query k)
-    fn output_bh(acc: BinaryHeap<(Self::Accumulator, usize)>) -> Vec<(Self::Query, usize)>;
+    #[inline(always)]
+    fn output_bh(mut acc: BinaryHeap<(Self::Accumulator, usize)>) -> Vec<(Self::Query, usize)> {
+        // SAFETY: transparent wrapper
+        let mut v: Vec<(Self::Accumulator, usize)> = Vec::with_capacity(acc.len());
+        let mut write_index = acc.len();
+        let orig_len = acc.len();
+        while let Some((dist_sq, idx)) = acc.pop() {
+            write_index -= 1;
+            unsafe {
+                if cfg!(not(feature = "sqrt-dist")) {
+                    *v.as_mut_ptr().add(write_index) = (dist_sq, idx);
+                } else {
+                    *v.as_mut_ptr().add(write_index) = (dist_sq.sqrt(), idx);
+                }
+            }
+        }
+        unsafe {
+            v.set_len(orig_len);
+            std::mem::transmute(v)
+        }
+    }
+
+    /// Converts the inner accumulator into the original input type (at end of query k)
+    #[inline(always)]
+    fn output_bh_sep(
+        mut acc: BinaryHeap<(Self::Accumulator, usize)>,
+    ) -> (Vec<Self::Query>, Vec<usize>) {
+        // SAFETY: transparent wrapper
+        let mut distances: Vec<Self::Accumulator> = Vec::with_capacity(acc.len());
+        let mut indices: Vec<usize> = Vec::with_capacity(acc.len());
+        let mut write_index = acc.len();
+        let orig_len = acc.len();
+        while let Some((dist_sq, idx)) = acc.pop() {
+            write_index -= 1;
+            unsafe {
+                if cfg!(not(feature = "sqrt-dist")) {
+                    *distances.as_mut_ptr().add(write_index) = dist_sq;
+                } else {
+                    *distances.as_mut_ptr().add(write_index) = dist_sq.sqrt();
+                }
+                *indices.as_mut_ptr().add(write_index) = idx;
+            }
+        }
+        unsafe {
+            distances.set_len(orig_len);
+            indices.set_len(orig_len);
+            (std::mem::transmute(distances), std::mem::transmute(indices))
+        }
+    }
 
     fn abs(acc: &Self::Accumulator) -> Self::Accumulator;
     fn half(acc: &Self::Accumulator) -> Self::Accumulator;
 }
 
+pub trait Sqrt {
+    fn sqrt(&self) -> Self;
+}
+
 impl TreeFloat for CP32 {
     type Accumulator = F32;
     type Query = f32;
+
+    const NAME: &'static str = "CP32";
+
     #[inline(always)]
+    fn new_accumulator_from_query(query: Self::Query) -> Self::Accumulator {
+        F32(query)
+    }
+
     fn sub_accumulator(&self, rhs: &Self::Accumulator) -> Self::Accumulator {
         F32(self.decompress()) - rhs
     }
@@ -71,15 +136,16 @@ impl TreeFloat for CP32 {
         unsafe { std::mem::transmute(acc) }
     }
     #[inline(always)]
-    fn output(acc: (Self::Accumulator, usize)) -> (Self::Query, usize) {
+    fn output((dist_sq, idx): (Self::Accumulator, usize)) -> (Self::Query, usize) {
         // SAFETY: transparent wrapper
-        unsafe { std::mem::transmute(acc) }
+        unsafe {
+            #[cfg(not(feature = "sqrt-dist"))]
+            return std::mem::transmute((dist_sq, idx));
+            #[cfg(feature = "sqrt-dist")]
+            return std::mem::transmute((dist_sq.sqrt(), idx));
+        }
     }
-    #[inline(always)]
-    fn output_bh(acc: BinaryHeap<(Self::Accumulator, usize)>) -> Vec<(Self::Query, usize)> {
-        // SAFETY: transparent wrapper
-        unsafe { std::mem::transmute(acc.into_sorted_vec()) }
-    }
+
     #[inline(always)]
     fn abs(acc: &Self::Accumulator) -> Self::Accumulator {
         F32(acc.0.abs())
@@ -93,6 +159,12 @@ impl TreeFloat for CP32 {
 impl TreeFloat for f32 {
     type Accumulator = F32;
     type Query = f32;
+
+    const NAME: &'static str = "F32";
+    #[inline(always)]
+    fn new_accumulator_from_query(query: Self::Query) -> Self::Accumulator {
+        F32(query)
+    }
     #[inline(always)]
     fn sub_accumulator(&self, rhs: &Self::Accumulator) -> Self::Accumulator {
         F32(self - rhs.0)
@@ -115,14 +187,14 @@ impl TreeFloat for f32 {
         unsafe { std::mem::transmute(acc) }
     }
     #[inline(always)]
-    fn output(acc: (Self::Accumulator, usize)) -> (Self::Query, usize) {
+    fn output((dist_sq, idx): (Self::Accumulator, usize)) -> (Self::Query, usize) {
         // SAFETY: transparent wrapper
-        unsafe { std::mem::transmute(acc) }
-    }
-    #[inline(always)]
-    fn output_bh(acc: BinaryHeap<(Self::Accumulator, usize)>) -> Vec<(Self::Query, usize)> {
-        // SAFETY: transparent wrapper
-        unsafe { std::mem::transmute(acc.into_sorted_vec()) }
+        unsafe {
+            #[cfg(not(feature = "sqrt-dist"))]
+            return std::mem::transmute((dist_sq, idx));
+            #[cfg(feature = "sqrt-dist")]
+            return std::mem::transmute((dist_sq.sqrt(), idx));
+        }
     }
 
     #[inline(always)]
@@ -138,6 +210,12 @@ impl TreeFloat for f32 {
 impl TreeFloat for f64 {
     type Accumulator = F64;
     type Query = f64;
+
+    const NAME: &'static str = "F64";
+    #[inline(always)]
+    fn new_accumulator_from_query(query: Self) -> Self::Accumulator {
+        F64(query)
+    }
     #[inline(always)]
     fn sub_accumulator(&self, rhs: &Self::Accumulator) -> Self::Accumulator {
         F64(self - rhs.0)
@@ -160,14 +238,14 @@ impl TreeFloat for f64 {
         unsafe { std::mem::transmute(acc) }
     }
     #[inline(always)]
-    fn output(acc: (Self::Accumulator, usize)) -> (Self::Query, usize) {
+    fn output((dist_sq, idx): (Self::Accumulator, usize)) -> (Self::Query, usize) {
         // SAFETY: transparent wrapper
-        unsafe { std::mem::transmute(acc) }
-    }
-    #[inline(always)]
-    fn output_bh(acc: BinaryHeap<(Self::Accumulator, usize)>) -> Vec<(Self::Query, usize)> {
-        // SAFETY: transparent wrapper
-        unsafe { std::mem::transmute(acc.into_sorted_vec()) }
+        unsafe {
+            #[cfg(not(feature = "sqrt-dist"))]
+            return std::mem::transmute((dist_sq, idx));
+            #[cfg(feature = "sqrt-dist")]
+            return std::mem::transmute((dist_sq.sqrt(), idx));
+        }
     }
 
     #[inline(always)]
@@ -185,6 +263,13 @@ impl TreeFloat for f64 {
 pub struct F32(pub f32);
 
 impl Eq for F32 {}
+
+impl Sqrt for F32 {
+    #[inline(always)]
+    fn sqrt(&self) -> Self {
+        F32(self.0.sqrt())
+    }
+}
 
 impl Ord for F32 {
     #[inline(always)]
@@ -251,6 +336,13 @@ impl Add<&F32> for F32 {
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(C)]
 pub struct F64(pub f64);
+
+impl Sqrt for F64 {
+    #[inline(always)]
+    fn sqrt(&self) -> Self {
+        F64(self.0.sqrt())
+    }
+}
 
 impl Eq for F64 {}
 

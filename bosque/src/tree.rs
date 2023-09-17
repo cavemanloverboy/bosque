@@ -53,6 +53,51 @@ pub fn into_tree<T: TreeFloat>(data: &mut [[T; 3]], idxs: &mut [Index], level: u
     }
 }
 
+pub fn into_tree_no_idxs<T: TreeFloat>(data: &mut [[T; 3]], level: usize) {
+    let mut trampoline_state = (data, level);
+    'trampoline_loop: loop {
+        let (data, level) = trampoline_state;
+        return {
+            if data.len() <= BUCKET_SIZE {
+                return;
+            }
+
+            // Do current level
+            let median = data.len() / 2;
+            let level_dim = level % 3;
+            data.select_nth_unstable_by(median, |a, b| unsafe {
+                a.get_unchecked(level_dim)
+                    .partial_cmp(b.get_unchecked(level_dim))
+                    .unwrap()
+            });
+
+            // Get left and right data and indices, sans median
+            let (left_data, median_and_right_data) = data.split_at_mut(median);
+            let right_data = &mut median_and_right_data[1..];
+
+            // Do left and right, recursively
+            // on level 0 we get 2^1 = 2 and spawn a thread so 2 total
+            // on level 1 we get 2^2 = 4 and spawn a thread on each of 2 threads so 4 total
+            // on level 2 we get 2^3 = 8 and spawn a thread on each of 4 threads so 8 total
+            // on level 3 we get 2^4 = 16 > 8 -> so sequential.
+            let lte_8_threads = 2_usize.pow(1 + level as u32) > 8;
+            let small_data = left_data.len() < 25_000;
+            let sequential = small_data | lte_8_threads;
+            if sequential {
+                // Need to call into_tree twice -- only one is unrolled
+                into_tree_no_idxs(left_data, level + 1);
+                trampoline_state = (right_data, level + 1);
+                continue 'trampoline_loop;
+            } else {
+                std::thread::scope(|s| {
+                    s.spawn(|| into_tree_no_idxs(left_data, level + 1));
+                    into_tree_no_idxs(right_data, level + 1);
+                });
+            }
+        };
+    }
+}
+
 /// Queries a compressed tree made up of the points in `tree` for the nearest neighbor.
 pub fn nearest_one<T: TreeFloat>(tree: &[[T; 3]], query: &[T::Query; 3]) -> (T::Query, usize) {
     // SAFETY: we are given the whole tree as a valid reference so pointer must be valid
@@ -64,9 +109,20 @@ pub fn nearest_one<T: TreeFloat>(tree: &[[T; 3]], query: &[T::Query; 3]) -> (T::
 pub fn nearest_one_periodic<T: TreeFloat>(
     tree: &[[T; 3]],
     query: &[T::Query; 3],
+    lo: T::Query,
+    hi: T::Query,
 ) -> (T::Query, usize) {
     // SAFETY: we are given the whole tree as a valid reference so pointer must be valid
-    T::output(unsafe { _nearest_one_periodic(tree, tree.as_ptr(), T::input(query), 0) })
+    T::output(unsafe {
+        _nearest_one_periodic(
+            tree,
+            tree.as_ptr(),
+            T::input(query),
+            0,
+            T::new_accumulator_from_query(lo),
+            T::new_accumulator_from_query(hi),
+        )
+    })
 }
 
 /// Queries a compressed tree made up of the points in `tree` for the nearest k neighbors.
@@ -89,13 +145,108 @@ pub fn nearest_k<T: TreeFloat>(
 }
 
 /// Queries a compressed tree made up of the points in `tree` for the nearest k neighbors.
+pub fn nearest_k_sep<T: TreeFloat>(
+    tree: &[[T; 3]],
+    query: &[T::Query; 3],
+    k: usize,
+) -> (Vec<T::Query>, Vec<usize>) {
+    // SAFETY: we are given the whole tree as a valid reference so pointer must be valid
+    T::output_bh_sep(unsafe {
+        _nearest_k(
+            tree,
+            tree.as_ptr(),
+            T::input(query),
+            0,
+            k,
+            BinaryHeap::with_capacity(k),
+        )
+    })
+}
+
+/// Queries a compressed tree made up of the points in `tree` for the nearest k neighbors.
+///
+/// To be used by `bosque_py` crate to remove an allocation
+pub fn nearest_k_bh<T: TreeFloat>(
+    tree: &[[T; 3]],
+    query: &[T::Query; 3],
+    k: usize,
+) -> BinaryHeap<(T::Accumulator, usize)> {
+    // SAFETY: we are given the whole tree as a valid reference so pointer must be valid
+    unsafe {
+        _nearest_k(
+            tree,
+            tree.as_ptr(),
+            T::input(query),
+            0,
+            k,
+            BinaryHeap::with_capacity(k),
+        )
+    }
+}
+
+/// Queries a compressed tree made up of the points in `tree` for the nearest k neighbors.
 pub fn nearest_k_periodic<T: TreeFloat>(
     tree: &[[T; 3]],
     query: &[T::Query; 3],
     k: usize,
+    lo: T::Query,
+    hi: T::Query,
 ) -> Vec<(T::Query, usize)> {
     // SAFETY: we are given the whole tree as a valid reference so pointer must be valid
-    T::output_bh(unsafe { _nearest_k_periodic(tree, tree.as_ptr(), T::input(query), k) })
+    T::output_bh(unsafe {
+        _nearest_k_periodic(
+            tree,
+            tree.as_ptr(),
+            T::input(query),
+            k,
+            T::new_accumulator_from_query(lo),
+            T::new_accumulator_from_query(hi),
+        )
+    })
+}
+
+/// Queries a compressed tree made up of the points in `tree` for the nearest k neighbors.
+/// //
+/// To be used by `bosque_py` crate to remove an allocation
+pub fn nearest_k_periodic_bh<T: TreeFloat>(
+    tree: &[[T; 3]],
+    query: &[T::Query; 3],
+    k: usize,
+    lo: T::Query,
+    hi: T::Query,
+) -> BinaryHeap<(T::Accumulator, usize)> {
+    // SAFETY: we are given the whole tree as a valid reference so pointer must be valid
+    unsafe {
+        _nearest_k_periodic(
+            tree,
+            tree.as_ptr(),
+            T::input(query),
+            k,
+            T::new_accumulator_from_query(lo),
+            T::new_accumulator_from_query(hi),
+        )
+    }
+}
+
+/// Queries a compressed tree made up of the points in `tree` for the nearest k neighbors.
+pub fn nearest_k_periodic_sep<T: TreeFloat>(
+    tree: &[[T; 3]],
+    query: &[T::Query; 3],
+    k: usize,
+    lo: T::Query,
+    hi: T::Query,
+) -> (Vec<T::Query>, Vec<usize>) {
+    // SAFETY: we are given the whole tree as a valid reference so pointer must be valid
+    T::output_bh_sep(unsafe {
+        _nearest_k_periodic(
+            tree,
+            tree.as_ptr(),
+            T::input(query),
+            k,
+            T::new_accumulator_from_query(lo),
+            T::new_accumulator_from_query(hi),
+        )
+    })
 }
 
 /// Inner recursive function.
@@ -209,13 +360,14 @@ unsafe fn _nearest_one_periodic<T: TreeFloat>(
     data_start: *const [T; 3],
     query: &[T::Accumulator; 3],
     level: usize,
+    lo: T::Accumulator,
+    hi: T::Accumulator,
 ) -> (T::Accumulator, usize) {
     // First do real image
     let (mut best_dist_sq, mut best) = _nearest_one(data, data_start, query, level, 0, T::max());
 
     // Going to actually specify dimensions here in case we generalize to D != 3 and other boxsizes
     const D: usize = 3;
-    let boxsize: [T::Accumulator; D] = [T::one(); D];
 
     // Find which images we need to check (skip real and start at 1)
     for image in 1..2_usize.pow(D as u32) {
@@ -231,8 +383,10 @@ unsafe fn _nearest_one_periodic<T: TreeFloat>(
                     // Get minimum of dist2 to lower and upper side
                     // safety: made safe with const generic
                     Some(unsafe {
-                        let dx = T::half(boxsize.get_unchecked(side))
-                            - T::abs(query.get_unchecked(side));
+                        let dx = T::abs(&(lo - *query.get_unchecked(side)))
+                            .min(T::abs(&(hi - *query.get_unchecked(side))));
+                        // T::half(boxsize.get_unchecked(side))
+                        // - T::abs(query.get_unchecked(side));
                         dx * dx
                     })
                 } else {
@@ -254,18 +408,19 @@ unsafe fn _nearest_one_periodic<T: TreeFloat>(
 
                     // Single index here as well
                     // safety: made safe with const generic
-                    let boxsize_component = unsafe { boxsize.get_unchecked(idx) };
+                    let boxsize_component = hi - lo;
 
                     // safety: made safe with const generic
                     unsafe {
-                        if *query_component < T::zero() {
+                        let midpoint = T::half(&(lo + hi));
+                        if *query_component < midpoint {
                             // Add if in lower half of box
                             *image_to_check.get_unchecked_mut(idx) =
-                                *query_component + *boxsize_component
+                                *query_component + boxsize_component
                         } else {
                             // Subtract if in upper half of box
                             *image_to_check.get_unchecked_mut(idx) =
-                                *query_component - *boxsize_component
+                                *query_component - boxsize_component
                         }
                     }
                 }
@@ -381,13 +536,14 @@ unsafe fn _nearest_k_periodic<T: TreeFloat>(
     data_start: *const [T; 3],
     query: &[T::Accumulator; 3],
     k: usize,
+    lo: T::Accumulator,
+    hi: T::Accumulator,
 ) -> BinaryHeap<(T::Accumulator, usize)> {
     // First do real image
     let mut bests = _nearest_k(data, data_start, query, 0, k, BinaryHeap::with_capacity(k));
 
     // Going to actually specify dimensions here in case we generalize to D != 3 and other boxsizes
     const D: usize = 3;
-    let boxsize: [T::Accumulator; D] = [T::one(); D];
 
     // Find which images we need to check (skip real and start at 1)
     for image in 1..2_usize.pow(D as u32) {
@@ -403,8 +559,8 @@ unsafe fn _nearest_k_periodic<T: TreeFloat>(
                     // Get minimum of dist2 to lower and upper side
                     // safety: made safe with const generic
                     Some(unsafe {
-                        let dx = T::half(boxsize.get_unchecked(side))
-                            - T::abs(query.get_unchecked(side));
+                        let dx = T::abs(&(lo - *query.get_unchecked(side)))
+                            .min(T::abs(&(hi - *query.get_unchecked(side))));
                         dx * dx
                     })
                 } else {
@@ -426,18 +582,19 @@ unsafe fn _nearest_k_periodic<T: TreeFloat>(
 
                     // Single index here as well
                     // safety: made safe with const generic
-                    let boxsize_component = unsafe { boxsize.get_unchecked(idx) };
+                    let boxsize_component = hi - lo;
 
                     // safety: made safe with const generic
                     unsafe {
-                        if *query_component < T::zero() {
+                        let midpoint = T::half(&(lo + hi));
+                        if *query_component < midpoint {
                             // Add if in lower half of box
                             *image_to_check.get_unchecked_mut(idx) =
-                                *query_component + *boxsize_component
+                                *query_component + boxsize_component
                         } else {
                             // Subtract if in upper half of box
                             *image_to_check.get_unchecked_mut(idx) =
-                                *query_component - *boxsize_component
+                                *query_component - boxsize_component
                         }
                     }
                 }
