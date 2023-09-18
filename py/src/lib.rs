@@ -5,7 +5,7 @@ use bosque::{
 };
 use numpy::{
     ndarray::{Array2, ArrayViewMut1, ArrayViewMut2},
-    IntoPyArray, PyArray1, PyArray2,
+    IntoPyArray, PyArray2,
 };
 use pyo3::{exceptions::PyValueError, prelude::*};
 use rayon::prelude::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
@@ -61,9 +61,9 @@ fn bosque_py(_py: Python, m: &PyModule) -> PyResult<()> {
             let Some(idxs) = indicies.as_slice_mut() else {
                 return Err(PyValueError::new_err("index array is not in C order"));
             };
-            bosque::tree::into_tree::<T>(data, idxs, 0);
+            bosque::tree::build_tree_with_indices::<T>(data, idxs);
         } else {
-            bosque::tree::into_tree_no_idxs(data, 0);
+            bosque::tree::build_tree(data);
         };
 
         let tree = match T::NAME {
@@ -341,26 +341,25 @@ impl IntoMode for &str {
 }
 
 #[derive(Debug, Clone)]
-pub enum KNN<'a> {
+pub enum KNN {
     Contiguous(usize),
-    Sparse(&'a [usize]),
+    Sparse(Vec<usize>),
 }
 
-impl<'a> KNN<'a> {
+impl KNN {
     #[inline(always)]
-    fn from_py(object: &'a PyAny) -> PyResult<KNN<'a>> {
+    fn from_py(object: &PyAny) -> PyResult<KNN> {
         if let Ok(k) = <usize as FromPyObject>::extract(object) {
             if k > 0 {
                 return Ok(KNN::Contiguous(k));
             }
         }
 
-        if let Ok(ks) = object.downcast::<PyArray1<usize>>() {
-            let ks_slice = unsafe { ks.as_slice()? };
-            let non_empty = ks_slice.len() > 0;
-            let non_zero = ks_slice.iter().all(|&k| k > 0);
+        if let Ok(ks) = <Vec<usize> as FromPyObject>::extract(object) {
+            let non_empty = ks.len() > 0;
+            let non_zero = ks.iter().all(|&k| k > 0);
             if non_empty & non_zero {
-                return Ok(KNN::Sparse(ks_slice));
+                return Ok(KNN::Sparse(ks));
             }
         }
 
