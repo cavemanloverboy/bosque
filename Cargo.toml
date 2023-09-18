@@ -11,3 +11,4 @@ bosque = { path = "bosque" }
 codegen-units = 1
 lto = "fat"
 opt-level = 3
+

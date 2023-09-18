@@ -6,7 +6,16 @@ use crate::{
 pub const BUCKET_SIZE: usize = 32;
 pub type Index = u32;
 
-pub fn into_tree<T: TreeFloat>(data: &mut [[T; 3]], idxs: &mut [Index], level: usize) {
+pub fn build_tree_with_indices<T: TreeFloat>(data: &mut [[T; 3]], idxs: &mut [Index]) {
+    into_tree(data, idxs, 0)
+}
+
+pub fn build_tree<T: TreeFloat>(data: &mut [[T; 3]]) {
+    into_tree_no_idxs(data, 0)
+}
+
+#[inline(always)]
+fn into_tree<T: TreeFloat>(data: &mut [[T; 3]], idxs: &mut [Index], level: usize) {
     let mut trampoline_state = (data, idxs, level);
     'trampoline_loop: loop {
         let (data, idxs, level) = trampoline_state;
@@ -53,7 +62,8 @@ pub fn into_tree<T: TreeFloat>(data: &mut [[T; 3]], idxs: &mut [Index], level: u
     }
 }
 
-pub fn into_tree_no_idxs<T: TreeFloat>(data: &mut [[T; 3]], level: usize) {
+#[inline(always)]
+fn into_tree_no_idxs<T: TreeFloat>(data: &mut [[T; 3]], level: usize) {
     let mut trampoline_state = (data, level);
     'trampoline_loop: loop {
         let (data, level) = trampoline_state;

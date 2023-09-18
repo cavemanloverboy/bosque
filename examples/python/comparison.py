@@ -10,6 +10,7 @@ ITERS = 100
 # Bosque only works for d=3 right now
 DIM = 3
 K = 2
+K_SPARSE = [1, 8, 64]
 
 data = np.random.uniform(size=(DATA, DIM))
 query = np.random.uniform(size=(QUERY, DIM))
@@ -24,6 +25,12 @@ start = time()
 for _ in range(ITERS):
     r, ids = tree.query(query, K)
 print(f"bosque finished query in {int(1000*(time()-start) / ITERS)} millis")
+
+K_SPARSE = [1, 8, 64]
+start = time()
+for _ in range(ITERS):
+    r, ids = tree.query(query, K_SPARSE)
+print(f"bosque k-sparse query in {int(1000*(time()-start) / ITERS)} millis")
 
 start = time()
 for _ in range(ITERS):

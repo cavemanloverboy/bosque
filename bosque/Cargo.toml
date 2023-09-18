@@ -29,3 +29,15 @@ rayon = "1.7.0"
 [[bench]]
 name = "tree"
 harness = false
+
+[[example]]
+name = "simple"
+path = "../examples/rust/simple.rs"
+
+[[example]]
+name = "abacus_mock"
+path = "../examples/rust/abacus_mock.rs"
+
+[[example]]
+name = "abacus_round_trip_compress"
+path = "../examples/rust/abacus_round_trip_compress.rs"

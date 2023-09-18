@@ -5,7 +5,7 @@ use bosque::{
 };
 use numpy::{
     ndarray::{Array2, ArrayViewMut1, ArrayViewMut2},
-    IntoPyArray, PyArray2,
+    IntoPyArray, PyArray1, PyArray2,
 };
 use pyo3::{exceptions::PyValueError, prelude::*};
 use rayon::prelude::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
@@ -127,10 +127,15 @@ fn bosque_py(_py: Python, m: &PyModule) -> PyResult<()> {
         pub fn query<'a>(
             &self,
             query: PyObject,
-            k: usize,
+            k: PyObject,
             boxsize: Option<[f64; 2]>,
             py: Python<'a>,
         ) -> PyResult<(PyObject, PyObject)> {
+            // Parse k as contiguous or sparse set
+            let k = KNN::from_py(k.as_ref(py))?;
+            let num_k = k.num_k();
+            let max_k = k.max();
+
             match self.mode {
                 Mode::F64 => {
                     if let Ok(query) = query.downcast::<PyArray2<f64>>(py) {
@@ -144,8 +149,8 @@ fn bosque_py(_py: Python, m: &PyModule) -> PyResult<()> {
                             let query: &[[f64; 3]] = cast_slice(query);
 
                             // Preallocate
-                            let dist_sq: Vec<f64> = Vec::with_capacity(k * query.len());
-                            let indices: Vec<usize> = Vec::with_capacity(k * query.len());
+                            let dist_sq: Vec<f64> = Vec::with_capacity(k.num_k() * query.len());
+                            let indices: Vec<usize> = Vec::with_capacity(k.num_k() * query.len());
                             // Create raw mutable pointers
                             let dist_sq_ptr: usize = dist_sq.as_ptr() as usize;
                             let indices_ptr: usize = indices.as_ptr() as usize;
@@ -154,31 +159,35 @@ fn bosque_py(_py: Python, m: &PyModule) -> PyResult<()> {
                             query.into_par_iter().enumerate().for_each(|(i, q)| {
                                 // Compute nearest neighbors
                                 let mut result_bh = if let Some([lo, hi]) = boxsize {
-                                    bosque::tree::nearest_k_periodic_bh(tree, q, k, lo, hi)
+                                    bosque::tree::nearest_k_periodic_bh(tree, q, max_k, lo, hi)
                                 } else {
-                                    bosque::tree::nearest_k_bh(tree, q, k)
+                                    bosque::tree::nearest_k_bh(tree, q, max_k)
                                 };
 
                                 // Calculate offset for this thread's output
-                                let mut offset = i * k + k;
+                                let mut offset = i * num_k + num_k;
 
                                 // Step 4: Directly write results into the subsections of the preallocated vectors
+                                let mut current_k = max_k;
                                 while let Some((dist_sq, index)) = result_bh.pop() {
-                                    offset -= 1;
-                                    unsafe {
-                                        let dist_sq_dst: *mut f64 =
-                                            (dist_sq_ptr as *mut f64).add(offset);
-                                        let indices_dst: *mut usize =
-                                            (indices_ptr as *mut usize).add(offset);
+                                    if k.contained(current_k) {
+                                        offset -= 1;
+                                        unsafe {
+                                            let dist_sq_dst: *mut f64 =
+                                                (dist_sq_ptr as *mut f64).add(offset);
+                                            let indices_dst: *mut usize =
+                                                (indices_ptr as *mut usize).add(offset);
 
-                                        *dist_sq_dst = dist_sq.sqrt().0;
-                                        *indices_dst = index;
+                                            *dist_sq_dst = dist_sq.sqrt().0;
+                                            *indices_dst = index;
+                                        }
                                     }
+                                    current_k -= 1;
                                 }
                             });
                             // println!("queried in {} millis", timer.elapsed().as_millis());
 
-                            let shape = (query.len(), k);
+                            let shape = (query.len(), num_k);
                             unsafe {
                                 return Ok((
                                     Array2::from_shape_vec_unchecked(shape, dist_sq)
@@ -208,8 +217,8 @@ fn bosque_py(_py: Python, m: &PyModule) -> PyResult<()> {
                             let query: &[[f32; 3]] = cast_slice(query);
 
                             // Preallocate
-                            let dist_sq: Vec<f32> = Vec::with_capacity(k * query.len());
-                            let indices: Vec<usize> = Vec::with_capacity(k * query.len());
+                            let dist_sq: Vec<f32> = Vec::with_capacity(num_k * query.len());
+                            let indices: Vec<usize> = Vec::with_capacity(num_k * query.len());
                             // Create raw mutable pointers
                             let dist_sq_ptr: usize = dist_sq.as_ptr() as usize;
                             let indices_ptr: usize = indices.as_ptr() as usize;
@@ -219,32 +228,36 @@ fn bosque_py(_py: Python, m: &PyModule) -> PyResult<()> {
                                 // Compute nearest neighbors
                                 let mut result_bh = if let Some([lo, hi]) = boxsize {
                                     bosque::tree::nearest_k_periodic_bh(
-                                        tree, q, k, lo as f32, hi as f32,
+                                        tree, q, max_k, lo as f32, hi as f32,
                                     )
                                 } else {
-                                    bosque::tree::nearest_k_bh(tree, q, k)
+                                    bosque::tree::nearest_k_bh(tree, q, max_k)
                                 };
 
                                 // Calculate offset for this thread's output
-                                let mut offset = i * k + k;
+                                let mut offset = i * num_k + num_k;
 
-                                // Step 4: Directly write results into the subsections of the preallocated vectors
+                                // Directly write results into the subsections of the preallocated vectors
+                                let mut current_k = max_k;
                                 while let Some((dist_sq, index)) = result_bh.pop() {
-                                    offset -= 1;
-                                    unsafe {
-                                        let dist_sq_dst: *mut f32 =
-                                            (dist_sq_ptr as *mut f32).add(offset);
-                                        let indices_dst: *mut usize =
-                                            (indices_ptr as *mut usize).add(offset);
+                                    if k.contained(current_k) {
+                                        offset -= 1;
+                                        unsafe {
+                                            let dist_sq_dst: *mut f32 =
+                                                (dist_sq_ptr as *mut f32).add(offset);
+                                            let indices_dst: *mut usize =
+                                                (indices_ptr as *mut usize).add(offset);
 
-                                        *dist_sq_dst = dist_sq.sqrt().0;
-                                        *indices_dst = index;
+                                            *dist_sq_dst = dist_sq.sqrt().0;
+                                            *indices_dst = index;
+                                        }
                                     }
+                                    current_k -= 1;
                                 }
                             });
                             // println!("queried in {} millis", timer.elapsed().as_millis());
 
-                            let shape = (query.len(), k);
+                            let shape = (query.len(), num_k);
                             unsafe {
                                 return Ok((
                                     Array2::from_shape_vec_unchecked(shape, dist_sq)
@@ -323,6 +336,67 @@ impl IntoMode for &str {
             "f32" | "float" | "single" => Ok(Mode::F32),
             "f64" | "double" => Ok(Mode::F64),
             _ => Err("only cp32/abacus, f32/float/single, f64/double are supported"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum KNN<'a> {
+    Contiguous(usize),
+    Sparse(&'a [usize]),
+}
+
+impl<'a> KNN<'a> {
+    #[inline(always)]
+    fn from_py(object: &'a PyAny) -> PyResult<KNN<'a>> {
+        if let Ok(k) = <usize as FromPyObject>::extract(object) {
+            if k > 0 {
+                return Ok(KNN::Contiguous(k));
+            }
+        }
+
+        if let Ok(ks) = object.downcast::<PyArray1<usize>>() {
+            let ks_slice = unsafe { ks.as_slice()? };
+            let non_empty = ks_slice.len() > 0;
+            let non_zero = ks_slice.iter().all(|&k| k > 0);
+            if non_empty & non_zero {
+                return Ok(KNN::Sparse(ks_slice));
+            }
+        }
+
+        Err(PyValueError::new_err(
+            "k needs to be a nonzero integer or nonempty list of nonzero integers",
+        ))
+    }
+
+    #[inline(always)]
+    fn num_k(&self) -> usize {
+        match self {
+            &KNN::Contiguous(k) => k,
+            KNN::Sparse(s) => s.len(),
+        }
+    }
+
+    #[inline(always)]
+    fn max(&self) -> usize {
+        match self {
+            &KNN::Contiguous(k) => k,
+            KNN::Sparse(s) => s
+                .iter()
+                .max()
+                .copied()
+                .expect("upon construction, nonemptiness is checked"),
+        }
+    }
+
+    #[inline(always)]
+    fn contained(&self, k: usize) -> bool {
+        match self {
+            // Technically, this should be k <= _k, but in the normal construction
+            // and use of a `KNN` the input should always be k <= _k.
+            KNN::Contiguous(_k) => true,
+
+            KNN::Sparse(ks) => ks.contains(&k),
         }
     }
 }

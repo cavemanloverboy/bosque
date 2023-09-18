@@ -8,7 +8,7 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 fn criterion_benchmark(c: &mut Criterion) {
     // const DATA: usize = 512 * 512 * 512;
     const DATA: usize = 100_000;
-    const QUERIES: usize = 10_000;
+    const QUERIES: usize = 1_000_000;
 
     let mut data: Vec<[CP32; 3]> = (0..DATA)
         .map(|_| [CP32::compress(rand::random::<f32>() - 0.5, 0.0); 3])
@@ -24,21 +24,21 @@ fn criterion_benchmark(c: &mut Criterion) {
     g.bench_function("build", |b| {
         b.iter_batched_ref(
             || (data.clone(), idxs.clone()),
-            |(ref mut d, ref mut i)| tree::into_tree(black_box(d), black_box(i), 0),
+            |(ref mut d, ref mut i)| tree::build_tree_with_indices(black_box(d), black_box(i)),
             BatchSize::LargeInput,
         )
     });
     g.bench_function("build_f32", |b| {
         b.iter_batched_ref(
             || (data_f32.clone(), idxs_f32.clone()),
-            |(ref mut d, ref mut i)| tree::into_tree(black_box(d), black_box(i), 0),
+            |(ref mut d, ref mut i)| tree::build_tree_with_indices(black_box(d), black_box(i)),
             BatchSize::LargeInput,
         )
     });
     build_group.finish();
 
-    tree::into_tree(&mut data, &mut idxs, 0);
-    tree::into_tree(&mut data_f32, &mut idxs_f32, 0);
+    tree::build_tree_with_indices(&mut data, &mut idxs);
+    tree::build_tree_with_indices(&mut data_f32, &mut idxs_f32);
 
     let query = [-0.1; 3];
     let mut query_nearest_group = c.benchmark_group("query_nearest");

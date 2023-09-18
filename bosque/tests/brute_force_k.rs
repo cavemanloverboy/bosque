@@ -2,7 +2,7 @@ use std::error::Error;
 
 use bosque::{
     abacussummit::uncompressed::CP32,
-    tree::{into_tree, nearest_k, nearest_k_periodic, Index},
+    tree::{build_tree_with_indices, nearest_k, nearest_k_periodic, Index},
 };
 use rand::{rngs::ThreadRng, Rng};
 use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
@@ -29,7 +29,7 @@ fn test_brute_force_k() -> Result<(), Box<dyn Error>> {
     }
 
     // Construct tree
-    into_tree(&mut data, &mut idxs, 0);
+    build_tree_with_indices(&mut data, &mut idxs);
 
     // Query tree
     let results: Vec<[(f32, usize); K]> = query
