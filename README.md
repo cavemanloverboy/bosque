@@ -43,7 +43,7 @@ fn main() {
 
 
 ## Performance
-Using the same benchmark as in FNNTW, we extend the list. We exclude the original `kiddo` benchmark, as there is now a much faster version 2 of `kiddo` -- which we highly recommend for use cases that cannot be in-place or thatrequire other query functionality e.g. `nearest_within` which `bosque` does not offer.
+Using the same benchmark as in FNNTW, we extend the list. We exclude the original `kiddo` benchmark, as there is now a much faster version 2 of `kiddo` -- which we highly recommend for use cases that cannot be in-place or that require other query functionality e.g. `nearest_within` which `bosque` does not offer.
 
 From FNNTW with minor modifications:
 > We use
