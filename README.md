@@ -45,16 +45,16 @@ fn main() {
 ## Performance
 Using the same benchmark as in FNNTW, we extend the list. We exclude the original `kiddo` benchmark, as there is now a much faster version 2 of `kiddo` -- which we highly recommend for use cases that cannot be in-place or thatrequire other query functionality e.g. `nearest_within` which `bosque` does not offer.
 
-From FNNTW:
+From FNNTW with minor modifications:
 > We use
 > - A mock dataset of 100,000 uniform random points in the unit cube.
 > - A query set of 1,000,000 uniform random points in the unit cube.
 >
-> Over 100 realizations of the datasets and query points, the following results are obtained for the average build (serial) and 1NN query times on an AMD EPYC 7502P using 48 threads. The results are sorted by the combined build and query time.
+> Over 100 realizations of the datasets and query points, the following results are obtained for the average build and 1NN query times on an AMD EPYC 7502P using 48 threads. The results are sorted by the combined build and query time.
 
 |  Code | Build (ms)| Query (ms) | Total (ms) |
 |---|---|---|---|
-| **Bosque**| **X** | **X** | **X** |
+| **Bosque**| **3.5** | **10** | **13.5** |
 | FNNTW | 12 | 22 | 34 |
 | pykdtree (python)| 12 | 35 | 47  |
 | nabo-rs (rust)| 25 | 30  | 55 |
