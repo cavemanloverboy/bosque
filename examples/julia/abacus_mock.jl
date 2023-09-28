@@ -1,7 +1,13 @@
 include("api.jl")
-const libbosque = joinpath(@__DIR__, "..", "..", "target", "release", "libbosque.dylib")
-# on linux:
-# const libbosque = joinpath(@__DIR__, "..", "..", "target", "release", "libbosque.so")
+
+# Import library, conditional on platform
+@static if Sys.isapple()
+    const libbosque = joinpath(@__DIR__, "..", "..", "target", "release", "libbosque.dylib")
+elseif Sys.islinux()
+    const libbosque = joinpath(@__DIR__, "..", "..", "target", "release", "libbosque.so")
+elseif Sys.iswindows()
+    const libbosque = joinpath(@__DIR__, "..", "..", "target", "release", "libbosque.dll")
+end
 
 
 # Compress + Decompress round trip
