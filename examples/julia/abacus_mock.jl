@@ -1,5 +1,8 @@
 include("api.jl")
 const libbosque = joinpath(@__DIR__, "..", "..", "target", "release", "libbosque.dylib")
+# on linux:
+# const libbosque = joinpath(@__DIR__, "..", "..", "target", "release", "libbosque.so")
+
 
 # Compress + Decompress round trip
 xv = decompress(compress(0.25, 750))
