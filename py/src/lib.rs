@@ -287,9 +287,7 @@ fn bosque_py(_py: Python, m: &PyModule) -> PyResult<()> {
             //     return Ok(build_tree(data.as_array_mut(), None)?);
             // }
 
-            Err(PyValueError::new_err(
-                "data was not a f64, f32, or cp32 array",
-            ))
+            Err(PyValueError::new_err("data/query type mismatch"))
         }
 
         pub fn print(&self) {
@@ -306,6 +304,10 @@ fn bosque_py(_py: Python, m: &PyModule) -> PyResult<()> {
                     println!("{f64_slice:?}");
                 }
             }
+        }
+
+        pub fn num_threads(&self) {
+            println!("using {} threads for query", rayon::current_num_threads());
         }
     }
 
