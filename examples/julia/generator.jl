@@ -4,7 +4,7 @@
 # that can be used as a starting point for `JuliaPackageWithRustDep.jl/api.jl`.
 #
 # Run this script with the following command:
-# `julia generator.jl`
+# `julia examples/julia/generator.jl`
 #
 import Pkg;
 Pkg.add("Clang");
