@@ -1,8 +1,5 @@
 [workspace]
-members = [
-    "bosque",
-    "py",
-]
+members = ["bosque", "py"]
 
 [workspace.dependencies]
 bosque = { path = "bosque" }
@@ -11,4 +8,3 @@ bosque = { path = "bosque" }
 codegen-units = 1
 lto = "fat"
 opt-level = 3
-
