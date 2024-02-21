@@ -175,7 +175,7 @@ pub fn nearest_k_sep<T: TreeFloat>(
 
 /// Queries a compressed tree made up of the points in `tree` for the nearest k neighbors.
 ///
-/// To be used by `bosque_py` crate to remove an allocation
+/// To be used by `pybosque` crate to remove an allocation
 pub fn nearest_k_bh<T: TreeFloat>(
     tree: &[[T; 3]],
     query: &[T::Query; 3],
@@ -217,7 +217,7 @@ pub fn nearest_k_periodic<T: TreeFloat>(
 
 /// Queries a compressed tree made up of the points in `tree` for the nearest k neighbors.
 /// //
-/// To be used by `bosque_py` crate to remove an allocation
+/// To be used by `pybosque` crate to remove an allocation
 pub fn nearest_k_periodic_bh<T: TreeFloat>(
     tree: &[[T; 3]],
     query: &[T::Query; 3],

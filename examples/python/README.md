@@ -4,7 +4,7 @@ We use `pyo3` to expose the Rust library to Python. To set it up from source fol
 
 1) First get maturin using `pip install maturin`
 2) Navigate to the `py/` directory (the `bosque-py` crate) and run `maturin develop --release`[^1].
-3) Your python environment should now have `bosque_py`!
+3) Your python environment should now have `pybosque`!
 
 
 
