@@ -1,11 +1,10 @@
 use bosque::{
     cast::{cast_slice, cast_slice_mut},
     float::{Sqrt, TreeFloat},
-    tree::Index,
 };
 use numpy::{
-    ndarray::{Array2, ArrayViewMut1, ArrayViewMut2},
-    IntoPyArray, PyArray2,
+    ndarray::{Array2, ArrayViewMut2},
+    IntoPyArray, PyArray2, PyReadwriteArray1,
 };
 use pyo3::{exceptions::PyValueError, prelude::*};
 use rayon::prelude::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
@@ -42,7 +41,7 @@ fn bosque_py(_py: Python, m: &PyModule) -> PyResult<()> {
 
     pub fn build_tree<T: TreeFloat>(
         mut data: ArrayViewMut2<'_, T>,
-        mut indices: Option<ArrayViewMut1<'_, Index>>,
+        mut indices: Option<PyReadwriteArray1<u32>>,
     ) -> PyResult<Tree> {
         if data.ncols() != 3 {
             return Err(PyValueError::new_err("Only 3D is supported"));
@@ -58,10 +57,12 @@ fn bosque_py(_py: Python, m: &PyModule) -> PyResult<()> {
 
         // Get or generate indices
         if let Some(ref mut indicies) = indices {
-            let Some(idxs) = indicies.as_slice_mut() else {
+            if let Ok(idxs) = indicies.as_slice_mut() {
+                println!("building with indices");
+                bosque::tree::build_tree_with_indices::<T>(data, idxs);
+            } else {
                 return Err(PyValueError::new_err("index array is not in C order"));
-            };
-            bosque::tree::build_tree_with_indices::<T>(data, idxs);
+            }
         } else {
             bosque::tree::build_tree(data);
         };
@@ -100,19 +101,23 @@ fn bosque_py(_py: Python, m: &PyModule) -> PyResult<()> {
     #[pymethods]
     impl Tree {
         #[new]
-        pub fn build<'a>(data: PyObject, py: Python<'a>) -> PyResult<Tree> {
+        pub fn build<'a>(
+            data: PyObject,
+            indices: Option<PyReadwriteArray1<u32>>,
+            py: Python<'a>,
+        ) -> PyResult<Tree> {
             if let Ok(data) = data.downcast::<PyArray2<f64>>(py) {
                 if data.dims()[1] != 3 {
                     return Err(PyValueError::new_err("only 3D is supported"));
                 }
-                return Ok(build_tree(unsafe { data.as_array_mut() }, None)?);
+                return Ok(build_tree(unsafe { data.as_array_mut() }, indices)?);
             }
 
             if let Ok(data) = data.downcast::<PyArray2<f32>>(py) {
                 if data.dims()[1] != 3 {
                     return Err(PyValueError::new_err("only 3D is supported"));
                 }
-                return Ok(build_tree(unsafe { data.as_array_mut() }, None)?);
+                return Ok(build_tree(unsafe { data.as_array_mut() }, indices)?);
             }
 
             // if let Ok(data) = data.downcast::<PyArray2<CP32>>(py) {
