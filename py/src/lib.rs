@@ -58,7 +58,6 @@ fn pybosque(_py: Python, m: &PyModule) -> PyResult<()> {
         // Get or generate indices
         if let Some(ref mut indicies) = indices {
             if let Ok(idxs) = indicies.as_slice_mut() {
-                println!("building with indices");
                 bosque::tree::build_tree_with_indices::<T>(data, idxs);
             } else {
                 return Err(PyValueError::new_err("index array is not in C order"));

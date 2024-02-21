@@ -1,4 +1,4 @@
-from bosque_py import Tree
+from pybosque import Tree
 from scipy.spatial import cKDTree as scipyTree
 import numpy as np
 from time import perf_counter as time
@@ -49,7 +49,7 @@ for _ in range(ITERS):
     sr, sids = stree.query(query, K if K > 1 else [K], workers=-1)
 print(f"scipy finished query in {int(1000*(time()-start) / ITERS)} millis")
 
-stree_periodic = scipyTree(data, boxsize = [1.0, 1.0, 1.0])
+stree_periodic = scipyTree(data, boxsize=[1.0, 1.0, 1.0])
 start = time()
 for _ in range(ITERS):
     sr, sids = stree_periodic.query(query, K if K > 1 else [K], workers=-1)
